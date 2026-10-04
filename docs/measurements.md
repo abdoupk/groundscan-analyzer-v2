@@ -155,6 +155,18 @@ scipy       1.18.1
 | --- | --- | --- | --- | --- |
 | per-export σ, polarity counts, extreme residuals, **median-atom fractions 0.7525 and 0.4792**, median-of-3 = B₅ on **80.8%** of cells, unusable-scale state on **1 of 9** | properties of the pinned residual field | background (**recorded**), lattice and zero padding (**recorded**), quantile convention (**recorded**), scale estimator (**recorded**, with the `1.4826` deviation above) | `recorded` | The first figure on this project that passes this rule, and it needed only the environment fingerprint added. Connectivity, level and perturbation protocol do not apply to a census. |
 
+### `scale_status` census — taken under [The not-emitted reason for an unusable robust scale](https://github.com/abdoupk/groundscan-analyzer-v2/issues/37)
+
+Same residual field as the census above, so the same background, lattice and fingerprint. Two additions of its own: the **quantile convention** was computed in the pinned floor form (`j = floor(np)`, `gamma = 1/2` at `g = 0` else `1`, no endpoint clamping) rather than through a library, and the **scale estimator** is the pinned pair on one σ target — `σ(MAD) = MAD / Z₇₅` and `σ(IQR) = IQR / (2·Z₇₅)` with `Z₇₅ = Φ⁻¹(0.75) = 0.6744897501960817`.
+
+| figure | measures | settings needed | standing | note |
+| --- | --- | --- | --- | --- |
+| state census: **1** `median-atom`, **2** `exact-agreement`, **6** `disagreement`, **0** `no-finite-values`, **0** `constant-field` | which `scale_status` state each export reaches | background, lattice, quantile convention, scale estimator, environment | `recorded` | Connectivity, level and perturbation protocol do not apply. |
+| disagreement sizes `d/σ` of **0.500**, 0.169, 0.130, 0.069, 0.034, 0.016 | how far apart the two estimates are | as above | `recorded` | Smallest real `d` is **0.0304**, against a derived tolerance band of `4.44e-16` … `9.43e-16` — fifteen orders of magnitude clear, so none is a near-tie. |
+| `IQR / MAD` of **1.0** (`Royal Tomb`) and **2.0** (`Error Signal`, `Tunnel - Original Scan`) | why the estimates differ, or coincide | as above | `recorded` | `2.0` makes the two σ-estimates bit-identical, so both "agreements" are an **exact float identity on an integral export** — a lattice artefact, not a fact about the estimators. `1.0` makes the IQR estimate *exactly half* the MAD estimate, hence the 50% disagreement. |
+| `tie-tolerance-saturated` reached on **0 of 9** | whether the derived saturation state ever fires | as above | `recorded` | Registered by [#34](https://github.com/abdoupk/groundscan-analyzer-v2/issues/34) and **unreached**. Recorded so it is not mistaken for something observed. |
+| `σ(MAD) × Z₇₅ − MAD` = `0.0` on seven exports, **2.22e-16** on `Iron Box`, **3.55e-15** on `Iron Treasure` | whether σ inverts exactly | as above | `recorded` | σ is **not** an exact inverse of MAD on two files in nine. Nothing in the record depends on recovering MAD from σ, so this is a fact rather than a defect — recorded because the assumption would be wrong if made. |
+
 ## Withdrawn by this audit
 
 Recorded so they are not re-quoted. All are `unpinned` or `unrecoverable` above; this is the index of what changed.
