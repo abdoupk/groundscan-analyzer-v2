@@ -48,6 +48,10 @@ dev = [
 line-length = 100
 target-version = "py313"
 src = ["src", "tests"]
+# docs/ holds archaeology (docs/legacy/) and research notes, not project code.
+# Without this, `ruff check .` / `ruff format .` walk it: check reports ~9k
+# findings against code we are forbidden to adapt, and format REWRITES it.
+exclude = ["docs"]
 preview = true
 required-version = "==0.16.9"
 force-exclude = true
