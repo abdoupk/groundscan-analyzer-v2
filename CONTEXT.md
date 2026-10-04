@@ -233,13 +233,23 @@ The convention is **pinned by polarity symmetry** — the combination must not b
 _Avoid_: baseline, trend removal, detrending
 
 **Component hierarchy**:
-The deterministic tree the engine emits instead of a detection. Anomaly membership, size, polarity and response are all derived from it **at a level the consumer selects** — the engine holds no threshold, because thresholds are policy. Stable in its upper structure under noise; **not** stable in how many nodes it has, which is why a **component count** carries conditions rather than being withheld.
-_Avoid_: cluster tree, merge tree, dendrogram, segmentation, mask
+The deterministic tree the engine emits, and **every node of it is a detection**. One structure read two ways, not two structures: the hierarchy *is* the detection record. It is built **per polarity** over the cells whose residual is non-zero, with **one level per distinct residual magnitude** — so the engine holds no threshold, because it emits the whole tree rather than a cut of it, and thresholds are policy.
+
+**Simultaneous entry is unordered.** Every cell sharing a magnitude enters as a sibling at once, which needs **no tie rule**: the components at a level are determined by the thresholded set, not by entry order. An ordering rule would impose an arbitrary sequence on cells the data does not distinguish, and would create intermediate nodes matching no thresholded set at all. This is not a corner case — one measured level carries **480 cells** — and it is what keeps the tree equivariant under **reflection**, since a reflection permutes cells within a simultaneous group.
+
+Levels are **raw residuals, never z-scores**: the scale-normalised view does not exist when the robust scale is in disagreement, so a level in σ units would be undefined exactly then. Stable in its upper structure under noise; **not** stable in how many nodes it has.
+_Avoid_: cluster tree, dendrogram, segmentation, mask
+
+**Detection count**:
+How many nodes the hierarchy holds, over one polarity. A **distinct quantity** from the **component count** — it is a property of the whole tree rather than of a cut of it — and it is the quantity that replaces "how many findings" now that a finding is not something the engine reports.
+
+Its definitional bound is over the cells entering the hierarchy, and it is **not** #32's per-level bound.
+_Avoid_: component count, node count, anomaly count, finding count
 
 **Component count**:
-How many connected components the hierarchy holds **at a selected level and polarity**. It is an **evidence output** and it is **emitted** — instability changes what travels with it, never whether it exists, because a count is perfectly computable and withholding one for being unstable would be a judgement about worth, which is not the engine's to make.
+How many components the hierarchy holds **at one level and one polarity**. Since **every node is a detection**, this is a **derivation over what the record already carries** rather than a separate stored output — the structure ships, the tally is the consumer's, and derivable state is not duplicated.
 
-It is a fact about **the engine's output**, not about the ground, and it carries three things: the **level**, the **connectivity convention** without which neither its bound nor its reproduction holds, and a **reference to the scan's stability record**. Its own sensitivity is a **separate output on condition**, carrying the **multiset of per-trial counts** and the trial count rather than any reduced drift figure — a relative deviation would be a chosen magnitude, and a count's instability is a jump rather than a drift. Its population is a numerator over the **scan's measured cells**, padding excluded: the one candidate denominator that is exactly invariant, since a polarity-restricted cell count provably flips sign under any perturbation. **No cross-polarity total is shipped**, and no derived ratio — the numerator and the denominator are stated and the quotient is the consumer's.
+It is a fact about **the engine's output**, not about the ground, and a derivation of it carries three things: the **level**, the **connectivity convention** without which neither its bound nor its reproduction holds, and a **reference to the scan's stability record**. That stability record **is** engine output, and the asymmetry is exact: per-trial counts require *running* the declared perturbation protocol, so they cannot be re-derived from one run. The record's own sensitivity output carries the **multiset of per-trial counts** and the trial count rather than any reduced drift figure — a relative deviation would be a chosen magnitude, and a count's instability is a jump rather than a drift. Its population is a numerator over the **scan's measured cells**, padding excluded: the one candidate denominator that is exactly invariant, since a polarity-restricted cell count provably flips sign under any perturbation. **No cross-polarity total is shipped**, and no derived ratio — the numerator and the denominator are stated and the quotient is the consumer's.
 
 It carries the one thing about a count that *is* exact, a **definitional bound** that is a **theorem** — the independence number of the connectivity graph, so `ceil(L·W/2)` under 4-connectivity and `ceil(L/2)·ceil(W/2)` under 8-connectivity — which means **the ceiling survives the perturbation the count does not**. Witness attainment is claimed only for a fully measured rectangular lattice.
 
@@ -263,7 +273,9 @@ Two states, **`mask-invariant`** and **`not-guaranteed`**. It is **sufficient an
 _Avoid_: stability, robustness, noise tolerance, sensitivity, order stability
 
 **Level**:
-The cut through a component hierarchy at which a detection is read. Selected per survey by the consumer, and **never transferable between surveys** — measured, top-lifespans run 0.00–0.06 of residual spread across the corpus, *measured under the superseded background and pending re-measurement*, though the non-transferability rests on the tree and the residual scale being per scan rather than on that figure. **No transferable default exists**, and a level-based reading is rejected outright when the robust scale is in disagreement.
+A **residual magnitude at which the tree is read** — and therefore a cut the consumer makes over data it already holds, not a parameter the engine is given. Every level is already present in the record, because every node is a detection carrying its birth level. **A cut moves no engine output at all**, which is the consumer-facing guarantee in one line: *you may cut anywhere and lose nothing the engine computed.*
+
+Chosen per survey by the consumer, and **never transferable between surveys** — measured, top-lifespans run 0.00–0.06 of residual spread across the corpus, *measured under the superseded background and pending re-measurement*, though the non-transferability rests on the tree and the residual scale being per scan rather than on that figure. **No transferable default exists**, and a level-based reading is rejected outright when the robust scale is in disagreement — which bites cleanly here, because a level is a raw residual and the cut needs no scale.
 
 A level is **not a filter over a fixed set**: raising it does not necessarily lower the **component count**, because a count is a discontinuous functional of a thresholded set. Raising it can **split** a component, **delete** one entirely, or **merge** survivors; lowering it can merge components or create new ones. The cells responsible **cannot be named** — the number that must cross together is **unbounded** — so **a level is never a nested filter and no marginality diagnostic exists**.
 
@@ -283,11 +295,15 @@ The lattice of impulses, counted and shaped without reference to any physical ex
 _Avoid_: grid space, cell space, lattice units
 
 **Anomaly**:
-A spatially connected set of responses sharing a polarity. The engine's first claim about the field.
+A spatially connected set of **residuals** sharing a polarity — residuals, not responses, since polarity is defined against the background and a response carries no side. Each one is exactly one **detection**.
 _Avoid_: blob, region, cluster, object
 
 **Detection**:
-What the engine emits about an anomaly: where it is, how large, what its shape is, what it is compatible with, and every limitation qualifying those statements. A detection is a bundle of claims with their warrants, not a finding. A detection belongs to a **frame** rather than to a scan, but its identity and numbering are **scan-local and permanently so**: it never contains measurement cells from more than one scan, and it retains the contributing scan's canonical payload hash even when that scan shares a frame with others.
+**One node of the component hierarchy.** That is the whole of it: a detection is not chosen from the tree, it *is* a node, and it carries its **birth level** as a recorded fact.
+
+So **no level ever enters the engine as an input**, and a detection is "a component at a selected level" with the selection made by the tree rather than by the caller. What the consumer selects is *which detections to read*. A detection is a bundle of claims with their warrants, not a finding. It belongs to a **frame** rather than to a scan, but its identity and numbering are **scan-local and permanently so**: it never contains measurement cells from more than one scan, and it retains the contributing scan's canonical payload hash even when that scan shares a frame with others.
+
+Two measured facts a reader should have before assuming a detection is an interesting thing. **The majority are single cells**, because every node qualifies and a leaf is a node — so most carry solidity exactly 1.0 and maximal compactness, and filtering them is the consumer's worth judgement, never the engine's. And **a large fraction of a scan's cells produce no detection at any level**, because a cell whose residual is exactly zero is in neither polarity; measured, 1,150 of 2,400 cells on one export and 1,204 of 1,600 on another. The record states both populations rather than leaving them to be inferred from a count.
 _Avoid_: finding, candidate, target, object
 
 ### The record
