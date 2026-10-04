@@ -80,6 +80,31 @@ The nine real exports OKM publishes as educational examples, and the **only oper
 A **provenance set, never a reference**: no independent ground truth stands behind any of them, their notes are the vendor's own, and every pattern name they use is consumer vocabulary the engine may not emit. Complete for this format's **variation** and empty of it — variation in content, none in structure — so what they can establish is **compatibility**, never correctness about the ground. Its *condition* is a separate fact: missing files and files whose content is not the expected one are different states, and neither is ever covered by synthetic or derived material.
 _Avoid_: reference, ground truth, training data, benchmark, expectations, sample set
 
+**Measurement standing**:
+What may be done with a **corpus-derived number** quoted in support of a decision. Exactly four values, in closed vocabulary:
+
+- `recorded` — every applicable setting is carried, so it may be quoted as a **point value**.
+- `swept` — a declared sweep, with its axes **and extent**, plus the measured spread across it, so it may be quoted as that sweep's **interval** and **never as a point**.
+- `unpinned` — settings were not carried and no sweep exists. **Not evidence.** History only.
+- `unrecoverable` — a declared sweep exists and the figure is **not reachable** in it. **Retired**; supports nothing.
+
+`legacy-sweep` is the **provenance label** rather than a standing: it marks a figure whose settings were not carried, and it becomes `swept` or `unrecoverable` once a sweep settles the question.
+
+The **spread never decides anything** — it *is* the figure's interval — so no number in this vocabulary turns on a judgement about acceptability, and there is no threshold anywhere in it. The rule **binds the document that declares staleness** as well: a ticket that marks a figure stale may not reuse it unmarked in the same breath.
+
+This is a vocabulary about **measurements taken while designing the engine**, and it is **pairwise disjoint from every result state** — a design-time figure is never `emitted`, `not-emitted` or `indeterminate`, and the engine never produces a standing. Its subject is not the ground and not the engine's output but **a number someone wrote down**, which is why a fourth category is needed that the engine's own three do not cover.
+_Avoid_: confidence, evidence grade, measurement quality
+
+**Measurement register**:
+The single home for every corpus-derived number this project quotes, and for its **standing** — `docs/measurements.md`, versioned, one entry per figure. The specification **cites register entries** rather than restating figures, so a figure's standing is written down once, in a file a later correction can reach.
+
+It exists because of a structural fact rather than a preference: a correction recorded in an issue **comment** cannot reach the text it corrects, since GitHub comments are immutable. Every withdrawal this project made before the register existed landed as a later comment the withdrawn text could not see, so the withdrawn figures were still unmarked in the very resolutions that cited them.
+
+Exempt from the rule, and recorded as exempt so the exemption is visible rather than assumed: **definitional** results proved from a definition, **synthetic** results over constructed fields, **exact-oracle** derivations independent of any corpus, and **raw-column** statistics needing no processing convention.
+
+Enforcement is **procedural, not mechanical**. A lint cannot work — a literal search for one withdrawn figure misses another entirely because the two are written with different glyphs, and that class of miss is not fixable by trying harder. A gate that can be evaded by typing an en-dash reads as enforcement while enforcing nothing, which is worse than an honest rule.
+_Avoid_: evidence database, measurement log, results table
+
 **Synthetic scenario**:
 A manufactured survey, used where no real one exists — chiefly to exercise the perpendicular case, which no real data ever will. It has no vendor provenance and no operator, every assertion in it is **`fixture-asserted`**, and it is **`synthetic-only`** evidence: not real data, and never a substitute for it.
 
@@ -272,7 +297,7 @@ One of `emitted`, `not-emitted`, or `indeterminate`, carried by **both evidence 
 
 A **refused scan** is not one of these: it is the input declining to produce a result at all, so its reason vocabulary is closed separately from the `not-emitted` reasons. Refusal is **exclusively a contract matter** — a contract-valid scan is always read, however underdetermined the physics.
 
-Other surfaces carry **their own closed vocabularies** — a gate's report states, a scenario's — and none of them may be used here. The relationship runs **one way only**: a gate or scenario condition may name an engine result state as the outcome it expected, and engine data never adopts a condition from outside the record. Every such vocabulary is **pairwise disjoint** from every other, because the value that appears on two surfaces is the one a reader cannot interpret.
+Other surfaces carry **their own closed vocabularies** — a gate's report states, a scenario's, a **measurement standing**'s — and none of them may be used here. The relationship runs **one way only**: a gate or scenario condition may name an engine result state as the outcome it expected, and engine data never adopts a condition from outside the record. Every such vocabulary is **pairwise disjoint** from every other, because the value that appears on two surfaces is the one a reader cannot interpret.
 _Avoid_: missing, null, absent, unknown, null-with-reason
 
 **Evidence output**:
