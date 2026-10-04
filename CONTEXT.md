@@ -17,12 +17,14 @@ A set of scans intended to cover one area, analysed together into one result.
 _Avoid_: site, project, session
 
 **Lattice**:
-The array of sampled positions within one scan, addressed by impulse index. Defined by the device alone and independent of any extent the operator declared.
+The array of sampled positions within one scan, addressed by impulse index. **Exactly the set of indices the file contains**: the export **declares no count** of impulses or lines, so the lattice's dimensions are observed and never inferred from a declared extent, and nothing in the file states how many were intended.
+
+Two facts about the same axis are recorded, and neither determines the other. The **span** is the operator's — the vendor's echo covers exactly the extent they declared — while the **spacing** between indices is nobody's stated intent and is recoverable only as `span / (count − 1)`. So a lattice's size says how a survey was sampled, not how much ground it covered: three exports declaring the same 3.00 m carry 10, 19 and 26 impulses per line, and a declared 15.00 m carries more per line than a declared 20.00 m does.
 _Avoid_: grid, raster, mesh
 
 **Impulse index**:
-A count of impulses along or across one scan line, as the device reports it. The only spatial fact in an export that does not depend on operator input.
-_Avoid_: coordinate, position, index — an index is not a position
+An ordinal along or across one scan line, as the device reports it — where one impulse fell in that line's sequence, not how many there were. It is the only spatial fact in an export that is **neither asserted by an operator nor computed by the vendor's software from what they asserted**, which is a statement about its origin and not about its truth: where a line begins is recorded nowhere and unverifiable.
+_Avoid_: coordinate, position, index — an index is not a position; impulse count, which is the lattice's size
 
 **Line order**:
 Whether a scan line's impulse index counts from where the operator began walking, or in one fixed field direction — that is, whether successive lines were written in **alternating travel directions** or all alike. It is **absent from the export**: `Scan Mode` is `context-only` and provably inert, a filename is not evidence, and no OKM version records it.
@@ -53,7 +55,9 @@ A number an export supplies with **no declared frame**. Not a position — a pos
 _Avoid_: metadata, geotag, waypoint, coordinates
 
 **Value integrality**:
-Whether the exported responses are **exact integers**, and how many of them are. A defensible fact about the input, computable with no declaration and **recorded nowhere in the file** — the export's decimal-place setting is a display choice and proves nothing, since all nine real exports are written at four places while six of them carry no fractional part at all.
+The **lattice** the exported responses lie on — the largest value every response is an exact multiple of, computed on the printed decimals — and whether that lattice is `1`. A defensible fact about the input, computable with no declaration and **recorded nowhere in the file** — the export's decimal-place setting is a display choice and proves nothing, since all nine real exports are written at four places while six of them carry no fractional part at all.
+
+The lattice is the general fact and integrality is its special case, so one recorded value carries both, and **one value per scan serves everything**: a median of lattice points is a lattice point, so a scan's residual lies on the same lattice as its responses. It is **never the declared precision** — a lattice coarser than the formatting grid is a property of the measurement, one equal to it is a property of the printing, and where the responses have no lattice of their own any exact tie they carry is an artefact of printing and nothing follows from it about the ground.
 
 Two consequences follow, and both are why it is carried. **On an integral scan, exact ties are structural rather than coincidental**, so an exact-equality guard built for near-ties is the wrong instrument. And **on an integral scan, summation is exact**, so float non-associativity cannot arise there — a hazard measured on one export may simply not exist on another. Reported with its sample count and named for what was observed, never for a cause: `rounded`, `processed` and `quantised` each assert a mechanism the file does not state, and the direction is genuinely unknown.
 
@@ -233,7 +237,7 @@ The convention is **pinned by polarity symmetry** — the combination must not b
 _Avoid_: baseline, trend removal, detrending
 
 **Component hierarchy**:
-The deterministic tree the engine emits, and **every node of it is a detection**. One structure read two ways, not two structures: the hierarchy *is* the detection record. It is built **per polarity** over the cells whose residual is non-zero, with **one level per distinct residual magnitude** — so the engine holds no threshold, because it emits the whole tree rather than a cut of it, and thresholds are policy.
+The deterministic tree the engine emits, and **every node of it is a detection**. One structure read two ways, not two structures: the hierarchy *is* the detection record. It is built **per polarity** over the cells whose residual is non-zero, with **one level per distinct residual magnitude, per polarity** — a magnitude occurring on both sides of the background is **two** levels and not one, so the level grid is a partition of the polarity and never a count of magnitudes over the field — so the engine holds no threshold, because it emits the whole tree rather than a cut of it, and thresholds are policy.
 
 **Simultaneous entry is unordered.** Every cell sharing a magnitude enters as a sibling at once, which needs **no tie rule**: the components at a level are determined by the thresholded set, not by entry order. An ordering rule would impose an arbitrary sequence on cells the data does not distinguish, and would create intermediate nodes matching no thresholded set at all. This is not a corner case — one measured level carries **480 cells** — and it is what keeps the tree equivariant under **reflection**, since a reflection permutes cells within a simultaneous group.
 
@@ -241,9 +245,11 @@ Levels are **raw residuals, never z-scores**: the scale-normalised view does not
 _Avoid_: cluster tree, dendrogram, segmentation, mask
 
 **Detection count**:
-How many nodes the hierarchy holds, over one polarity. A **distinct quantity** from the **component count** — it is a property of the whole tree rather than of a cut of it — and it is the quantity that replaces "how many findings" now that a finding is not something the engine reports.
+How many nodes the hierarchy holds, **over one polarity**, and **no cross-polarity total is emitted** — the structure ships and the tally is the consumer's, as with the component count. A **distinct quantity** from the **component count** — it is a property of the whole tree rather than of a cut of it — and it is the quantity that replaces "how many findings" now that a finding is not something the engine reports.
 
-Its definitional bound is over the cells entering the hierarchy, and it is **not** #32's per-level bound.
+**One node per birth.** A component born at a level and unchanged at the next is one node with a lifespan; a cell set that vanishes and later returns is a **second** node, so a node's identity is its birth and never its cell set. Summing the component count over levels is therefore **not** this quantity: it counts a surviving component once per level it outlives, which is a tally over cuts rather than a property of the tree.
+
+Its definitional bound is **the cells entering the hierarchy**: the count never exceeds them and never falls below the number of components they form, so **both ends are attainable** and the sharp end is the cell count. It is **not** #32's per-level bound, which is over a level rather than a tree.
 _Avoid_: component count, node count, anomaly count, finding count
 
 **Component count**:
@@ -269,13 +275,13 @@ Whether a declared **bounded** perturbation of the residual field could change *
 
 Two states, **`mask-invariant`** and **`not-guaranteed`**. It is **sufficient and not necessary**, and **`not-guaranteed` does not mean unstable** — a large share of genuinely invariant fields read `not-guaranteed`, because the criterion is conservative. It belongs to the **exact-tie-tolerance** family: derived from the computation, catching the case it names and nothing else, and **never a threshold**.
 
-**Ordering invariance is a corollary of this, not its content** — and so is magnitude invariance, since a count that cannot change cannot reorder. Valid only for a **bounded** protocol; an unbounded one leaves every field unguaranteed. Where a protocol perturbs the payload instead of the residual, the residual bound is **derived through the background model** rather than assumed. The amplitude is compared by **strict inequality** with the floating-point error bound subtracted.
+**Ordering invariance is a corollary of this, not its content** — and so is magnitude invariance, since a count that cannot change cannot reorder. Valid only for a **bounded** protocol; an unbounded one leaves every field unguaranteed. Where a protocol perturbs the payload instead of the residual, the residual bound is **derived through the background model** rather than assumed: a median never moves further than the largest movement of its inputs, so a payload amplitude of `a` moves the background by at most `a` and the residual by at most **`2a`**, and no tighter bound follows from the model. The consequence is worth stating plainly — payload-perturbation invariance is **strictly rarer** than residual-perturbation invariance, because every threshold distance must clear twice the amplitude. The amplitude is compared by **strict inequality** with the floating-point error bound subtracted.
 _Avoid_: stability, robustness, noise tolerance, sensitivity, order stability
 
 **Level**:
 A **residual magnitude at which the tree is read** — and therefore a cut the consumer makes over data it already holds, not a parameter the engine is given. Every level is already present in the record, because every node is a detection carrying its birth level. **A cut moves no engine output at all**, which is the consumer-facing guarantee in one line: *you may cut anywhere and lose nothing the engine computed.*
 
-Chosen per survey by the consumer, and **never transferable between surveys** — measured, top-lifespans run 0.00–0.06 of residual spread across the corpus, *measured under the superseded background and pending re-measurement*, though the non-transferability rests on the tree and the residual scale being per scan rather than on that figure. **No transferable default exists.**
+Chosen per survey by the consumer, and **never transferable between surveys**. The corpus figure that once carried this — top-lifespans as a fraction of residual spread — is **withdrawn** and stands `unrecoverable` in the register: under the pinned background it is not merely unmatched but **unreachable**, since on three of the nine exports the smallest gap the level grid admits already exceeds the band's upper edge. The non-transferability never rested on that figure in any case — it rests on the tree and the residual scale being per scan — and the withdrawal leaves it standing. **No transferable default exists.**
 
 A level is a raw residual and so is **not** withheld when the robust scale is in disagreement — the cut needs no scale at all. What the disagreement withholds is the **scale-normalised view**, and only that; see **Scale status**. An earlier ruling that a level-based reading is rejected on scale disagreement survives against the normalised view alone.
 
@@ -363,7 +369,7 @@ A statement about what was measured, not about what is out there. Recurrence acr
 _Avoid_: characterisation, confidence, evidence score, repeatability
 
 **Dominance**:
-The peak residual magnitude of the strongest component over that of the second strongest, at a selected level. **A ratio, and structurally stable** — measured 13 stable / 0 drifting / 0 unstable across the corpus, worst case 0.0101 relative deviation under 1% noise, *measured under the superseded background and pending re-measurement*. Its *existence* is count-dependent (needs ≥2 components) while its *value* is not, so the component count is reported alongside it.
+The peak residual magnitude of the strongest component over that of the second strongest, at a selected level. **A ratio, and structurally stable** — which is an argument from being a ratio over a thresholded set, not a corpus result. The corpus measurement once offered for it is **withdrawn** and stands `unrecoverable` in the register, on two independent grounds: its classification half named **three bands**, and a band is a threshold, which the engine holds none of; and its magnitude half was a **worst case** that the declared protocol does not reach. What replaces it is measured per polarity at a declared level and carries the component count beside it. Its *existence* is count-dependent (needs ≥2 components) while its *value* is not.
 _Avoid_: uniqueness, dominance score, strength ratio, prominence
 
 **Polarity**:
@@ -463,7 +469,7 @@ The field's **construction is part of this provenance**, so every state is a pro
 _Avoid_: scale score, dispersion tier, confidence, scale flag, quality tier
 
 **Median atom**:
-A run of values **exactly equal** to the sample's median, heavy enough to outvote it. **Measured on the corpus under `background-model-v1`**: one vendor export's residual field carries an atom of **0.7525** of its cells, past the halfway point and so producing a robust scale of exactly zero, while a second sits at **0.4792** and is **not** an atom at all. (Earlier figures — fractions of 0.57 to 0.81 across two exports — were measured under the superseded background and are pending re-measurement.)
+A run of values **exactly equal** to the sample's median, heavy enough to outvote it. **Measured on the corpus under `background-model-v1`**: one vendor export's residual field carries an atom of **0.7525** of its cells, past the halfway point and so producing a robust scale of exactly zero, while a second sits at **0.4792** and is **not** an atom at all. (Earlier figures — fractions of 0.57 to 0.81 across two exports — were measured under the superseded background and are **withdrawn**; the "points" they were quoted at have no counterpart under a pinned ladder of three scales.)
 
 Its consequence is exact and it is not a matter of tuning: **the median absolute deviation is zero if and only if the atom holds more than half the sample**, and every median-of-medians scale estimator inherits that, so on such a field the whole family returns **exactly zero together** — while the interquartile range, blind to the atom, can be non-zero on the same sample. So **two estimators from one family cannot witness each other's blind spot**, and a detector built from two of them reports *agreement* on a value that is not the dispersion.
 
