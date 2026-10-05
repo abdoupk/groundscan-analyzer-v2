@@ -164,16 +164,11 @@ This is the load-bearing check, because every figure below is worthless if the i
 
 Two independent grounds, and the second is the stronger one.
 
-**The band is not reproduced under any reading of "top".** #11 does not say what "top" selects. Four readings were declared and measured, over both connectivities and both denominators — sixteen settings:
+**The band is not reproduced under any reading of "top".** #11 does not say what "top" selects. Four readings were declared, over both connectivities and both denominators — **sixteen settings**, declared in the register row's figure cell.
 
-| Reading of "top" | ÷ residual sd | ÷ `σ(MAD)` |
-| --- | --- | --- |
-| max lifespan over all nodes | 1.580 – 15.500 | 2.023 – 66.774 (1 of 9 undefined) |
-| median of the eight longest-lived | 0.279 – 7.684 | 0.843 – 5.396 (1 of 9 undefined) |
-| max among the eight largest-by-area | 0.017 – 2.260 | 0.043 – 2.361 (1 of 9 undefined) |
-| max excluding nodes born at the lowest level | 1.580 – 15.500 | 2.023 – 66.774 (1 of 9 undefined) |
+**The ranges are not restated here.** This write-up quotes no figure: the register is the single home for every corpus-derived number and its standing, and the top-lifespan row there carries **one corpus range per declared setting, sixteen of them**, together with the connectivity effect per export. The table this section used to hold was the **4-connectivity subset** of that row's own declared sweep, under a header with no connectivity column — so it reported four of sixteen settings while the prose beside it claimed sixteen. [#59](https://github.com/abdoupk/groundscan-analyzer-v2/issues/59) found it, corrected the row and removed the table. The values were never wrong; they were a subset presented as the sweep, which is the failure a register exists to make impossible.
 
-Only the third reading has a minimum inside the old band, and its maximum is **38× the band's upper edge**. The first and fourth are *uninformative as measurements*: the longest-lived node spans nearly the whole magnitude range, so that reading restates the residual spread rather than measuring a property of a detection. The fourth equalling the first is itself a finding — a component whose cell set is unchanged while other components are born and die around it persists for many levels, so excluding "roots" removes nothing.
+Two things survive here because they are about the readings rather than about the numbers. Only the **third** reading has a minimum inside the old band, and the fourth equalling the first is itself a finding — a component whose cell set is unchanged while others are born and die around it persists for many levels, so excluding "roots" removes nothing. And the first and fourth are **uninformative as measurements**: the longest-lived node spans nearly the whole magnitude range, so that reading restates the residual spread rather than measuring a property of a detection.
 
 **The band is unreachable, not merely unmatched.** A node cannot be born and die between two levels closer together than the smallest gap between consecutive distinct residual magnitudes of its polarity. That gives a *provable floor* on every node's lifespan, and on **3 of 9** exports the floor alone already exceeds `0.06`:
 
