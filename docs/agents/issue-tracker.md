@@ -21,6 +21,29 @@ Infer the repo from `git remote -v`; `gh` does this automatically when run insid
 > **v2**, and its issues go to `groundscan-analyzer-v2`. Pass `-R abdoupk/groundscan-analyzer-v2`
 > explicitly if you ever run `gh` from outside the clone.
 
+## Reading `gh` output: encoding
+
+**Verified 2026-10-05. PowerShell captures `gh`'s stdout through `[Console]::OutputEncoding`, which on this machine is `cp1256`, not UTF-8.** So `gh ... > file` **decodes UTF-8 output as cp1256 and re-encodes it as UTF-8**, and every non-ASCII character becomes mojibake. This is the `gh`-on-Windows codepage corruption [#47](https://github.com/abdoupk/groundscan-analyzer-v2/issues/47) recorded; this is its mechanism, and it is silent.
+
+Reproduction, on a body carrying **10 em-dashes**:
+
+| path | result |
+| --- | --- |
+| `gh issue view 66 --json body --jq .body > f` | **0 em-dashes survive.** The file holds 96 bytes of cp1256 codepage values (`0xC2`, `0xC3`, `0xD8`, `0xB8`, `0xA4`, `0xAB`-`0xAD`, `0x94`-`0x96`, `0x80`) |
+| the same, with `[Console]::OutputEncoding = [System.Text.Encoding]::UTF8` set first | **all 10 survive** |
+
+**Three paths are safe. Reach for these.**
+
+- **Pass non-ASCII as an _argument_**, e.g. a here-string into `--body`. **Lossless** - verified for `U+2192`, `U+2014`, `U+2013`, `U+00D7`, `U+00B2`. So `gh issue comment <n> --body $text` does not corrupt text, however the shell happens to be holding it.
+- **Do the work inside `--jq` and let `gh` emit ASCII only.** `gh api ... --jq '"n=" + ((.body | split("\u2192") | length) - 1 | tostring)'` counts a character without the character ever crossing the shell. To test whether a body carries *any* non-ASCII, use `[.body | explode[] | select(. > 127)] | length`. **This is the only trustworthy way to check**, because a file read back through a redirect cannot be relied on to report its own contents correctly.
+- **Read and write files with the file tools**, which go through disk and never touch console encoding. This is why editing `docs/measurements.md` with them is safe while round-tripping it through a shell is not.
+
+**What is actually at risk** is the act of *producing* a file by redirecting `gh` output: `gh issue edit --body-file` then reads that file correctly, so a body mangled on the way out is pushed mangled, and the damage is invisible in the diff because the mangling happens before git sees it.
+
+**Current exposure.** The map body and every ticket body closed so far are **pure ASCII** (verified: zero codepoints above 127), so their round-trips are safe by luck rather than by handling - and a session that assumed otherwise would report a false alarm, as this one nearly did. **`docs/measurements.md` is not ASCII** - 51 arrows, 76 en-dashes, 315 em-dashes, 49 `×`, 3 `²` - and must never be produced by a redirect.
+
+Two classes of claim are worth re-checking with `--jq` rather than a file, because a corrupted read and a correct one look the same: **"this figure appears nowhere"** and **"this body is complete"**. Both were settled this way when [#61](https://github.com/abdoupk/groundscan-analyzer-v2/issues/61) was resolved.
+
 ## Pull requests as a triage surface
 
 **PRs as a request surface: no.** _(Set to `yes` if this repo treats external PRs as feature requests; `/triage` reads this flag.)_
