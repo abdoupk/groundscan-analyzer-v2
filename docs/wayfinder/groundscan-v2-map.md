@@ -4,6 +4,11 @@
 > `13 stable / 0 drifting / 0 unstable` and worst case `0.0101`, now `unrecoverable`. Do not
 > quote any number from here. Every corpus-derived figure and its **standing** lives in
 > `docs/measurements.md`, which is the single home; read it rather than this file.
+>
+> **Watermark.** This snapshot references no ticket beyond **#29**. The live map is far past that,
+> so **every decision taken since is missing here** - not only the withdrawn figures. It also has
+> no `## Open tickets` section, so it cannot tell you what is outstanding. For anything you intend
+> to act on, read issue #1.
 ## Destination
 
 A **decision-complete specification** for a greenfield OKM analysis engine - behaviour, contracts, and invariants - with a **frozen scientific contract** as a required sub-deliverable. The specification covers the engine *and* the epistemic regime that governs the claims the engine is allowed to make.

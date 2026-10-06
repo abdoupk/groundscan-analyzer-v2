@@ -10,11 +10,6 @@ How the engineering skills should consume this repo's domain documentation when 
 
 If any of these files don't exist, **proceed silently**. Don't flag their absence; don't suggest creating them upfront. The `/domain-modeling` skill (reached via `/grill-with-docs` and `/improve-codebase-architecture`) creates them lazily when terms or decisions actually get resolved.
 
-> **Current state:** neither `CONTEXT.md` nor `docs/adr/` exists yet. This repo is an `OKM`-focused
-> ground scan analyzer, so the domain vocabulary most likely to need a glossary entry first is `OKM`
-> itself — it appears in `pyproject.toml` and `AGENTS.md` without being expanded anywhere. Everything
-> else (`Scan`, `Sample`, `QualityGate`) is currently unwritten, so those terms are not yet fixed.
-
 ## File structure
 
 Single-context repo (most repos):
