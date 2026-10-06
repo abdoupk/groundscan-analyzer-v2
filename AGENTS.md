@@ -29,7 +29,14 @@ Plain `uv run` auto-syncs; `--frozen` is used in this repo's commands to avoid r
 
 Run gates in this order: `ruff format` → `ruff check` → `mypy` → `pytest`.
 
-There is no pre-commit config and no CI; every gate above is manual.
+There is still no CI. There **is** a `.pre-commit-config.yaml`, which runs the cheap gates on every commit: `ruff format` → `ruff check` → `vulture src` → `mypy` → `pytest` → `scripts/check_map.py`. Three more are wired up but off the commit path, on the `manual` stage, because they cost minutes or need the network:
+
+```bash
+uv run pre-commit run --hook-stage manual --all-files
+```
+
+- **`deptry` is deliberately not blocking yet.** It reports DEP002s for dependencies pre-declared ahead of the code that imports them. #83 ruled it joins the commit path the moment those verdicts reach `pyproject.toml` — a gate that arrives already failing gets read as a bad gate and then `--no-verify`'d.
+- **`scripts/check_map.py` calls the network.** Its subject is the relationship between this repository and the tracker, not a file's contents, which is why it is a hook rather than a test.
 
 ## Pytest addopts are hostile to focused runs
 

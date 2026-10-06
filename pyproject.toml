@@ -51,7 +51,9 @@ src = ["src", "tests"]
 # docs/ holds archaeology (docs/legacy/) and research notes, not project code.
 # Without this, `ruff check .` / `ruff format .` walk it: check reports ~9k
 # findings against code we are forbidden to adapt, and format REWRITES it.
-exclude = ["docs"]
+# scripts/ is agent tooling, same category and same reason: it prints, and it
+# shells out to `gh`, both of which `select = ["ALL"]` flags by construction.
+exclude = ["docs", "scripts"]
 preview = true
 required-version = "==0.16.9"
 force-exclude = true
@@ -185,6 +187,13 @@ cache = true
 # ---------- dependency analysis ----------
 [tool.deptry]
 known_first_party = ["groundscan_analyzer"]
+# Same reasoning and same finding as [tool.ruff]'s exclude above. Without this,
+# deptry walks docs/legacy/ and reports 674 findings against archaeology this
+# project is forbidden to adapt, so the dependency gate cannot exist at all.
+# scripts/ imports its own siblings, which deptry reads as undeclared packages.
+# Setting `exclude` REPLACES deptry's defaults rather than extending them, so the
+# defaults are carried here verbatim - dropping them puts .venv back in scope.
+exclude = ["docs", "scripts", "venv", '\.venv', '\.direnv', "tests", '\.git', 'setup\.py']
 
 # ---------- vulture ----------
 [tool.vulture]

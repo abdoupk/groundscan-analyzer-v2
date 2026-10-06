@@ -1,0 +1,90 @@
+# Every gate runs in this repository's own environment via `uv run --frozen`, so
+# there is one runner and one resolved dependency set. `language: system` is what
+# buys that: the default would build an isolated virtualenv per hook and install
+# ruff, mypy and pytest again on every commit.
+#
+# Order is cheap-first, and it is part of the bar (see issue #83): the cheapest
+# failure should be the one discovered first. Format and lint cost milliseconds,
+# pytest and the map check cost seconds, mutation testing costs minutes.
+#
+# Run the manual stage on demand:  uv run pre-commit run --hook-stage manual --all-files
+#
+# One consequence of pre-commit's model worth knowing: unstaged changes are stashed
+# before the hooks run, so a hook that takes no filenames sees the *staged* tree.
+# That is the right behaviour for a commit gate, and it is why the map check is
+# allowed to call the network - its subject is the relationship between this
+# repository and the tracker, not the contents of a file.
+
+minimum_pre_commit_version: "4.0.0"
+
+repos:
+  - repo: local
+    hooks:
+      - id: ruff-format
+        name: ruff format
+        entry: uv run --frozen ruff format
+        language: system
+        pass_filenames: false
+
+      - id: ruff-check
+        name: ruff check
+        entry: uv run --frozen ruff check --no-fix
+        language: system
+        pass_filenames: false
+
+      - id: vulture
+        name: vulture
+        entry: uv run --frozen vulture src
+        language: system
+        pass_filenames: false
+
+      - id: mypy
+        name: mypy
+        entry: uv run --frozen mypy
+        language: system
+        pass_filenames: false
+
+      - id: pytest
+        name: pytest
+        entry: uv run --frozen pytest
+        language: system
+        pass_filenames: false
+
+      - id: map-check
+        name: map body vs tracker
+        entry: python scripts/check_map.py
+        language: system
+        pass_filenames: false
+        always_run: true
+
+      # deptry reports five DEP002s: runtime dependencies the project has
+      # deliberately pre-declared and not yet undeclared. Issue #83 rules that
+      # deptry joins the commit path the moment those verdicts reach
+      # pyproject.toml, and not before - a gate that arrives failing is read as a
+      # bad gate rather than as a real discrepancy, and then gets --no-verify'd.
+      # Until then it is a manual hook, not a blocking one.
+      - id: deptry
+        name: deptry
+        entry: uv run --frozen deptry .
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [manual]
+
+      # Mutation testing and the CVE scan are gates, but they cost minutes and
+      # the second needs the network, so they are not on the commit path.
+      - id: gremlins
+        name: pytest --gremlins
+        entry: uv run --frozen pytest --gremlins --no-cov
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [manual]
+
+      - id: pip-audit
+        name: pip-audit
+        entry: uv run --frozen pip-audit -r audit-requirements.txt --disable-pip
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [manual]
