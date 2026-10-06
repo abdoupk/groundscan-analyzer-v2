@@ -51,8 +51,8 @@ RECORD_MARKERS = frozenset(
 #: The row-kind token for a capability that emits no declared record.
 NO_OUTPUT = "no-output"
 
-#: The row-kind token for a capability that emits a declared record.
-OUTPUT = "output"
+#: The row-kind token for a declared record.
+OUTPUT = "declared-record"
 
 #: The roles a `no-output` row can carry. Derived, not assigned. A `no-output`
 #: row is a location, not a capability, so every one carries a token.
@@ -69,7 +69,7 @@ FACADE = "facade"
 class Row:
     """One capability row of the census.
 
-    `name` is the record class for an `output` row and the module path for a
+    `name` is the record class for a `declared-record` row and the module path for a
     `no-output` row, because that is the identity a search would use. `role`
     is the derived classification of a `no-output` row and is empty otherwise:
     it is populated exactly when `kind` is `no-output`.

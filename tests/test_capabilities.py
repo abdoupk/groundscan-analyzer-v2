@@ -29,7 +29,7 @@ DERIVER = REPO / "scripts" / "derive_capabilities.py"
 BEGIN_MARKER = "<!-- BEGIN DERIVED TABLE -->"
 END_MARKER = "<!-- END DERIVED TABLE -->"
 
-KINDS = frozenset({"output", "no-output"})
+KINDS = frozenset({"declared-record", "no-output"})
 ROLES = frozenset({"callable-surface", "private-only", "constants-only"})
 ISSUE_REFERENCE = re.compile(r"^#\d+$")
 
@@ -142,15 +142,15 @@ def test_every_row_role_is_in_the_closed_set() -> None:
 
 
 def test_role_is_populated_exactly_when_kind_is_no_output() -> None:
-    """A role classifies a location emitting nothing; an output row has none."""
+    """A role classifies a location emitting nothing; a declared-record row has none."""
     blank_no_output = [
         row["capability"] for row in rows() if row["kind"] == "`no-output`" and not row["role"]
     ]
     assert not blank_no_output, f"no-output rows with no role: {blank_no_output}"
     filled_output = [
-        row["capability"] for row in rows() if row["kind"] == "`output`" and row["role"]
+        row["capability"] for row in rows() if row["kind"] == "`declared-record`" and row["role"]
     ]
-    assert not filled_output, f"output rows carry a no-output role: {filled_output}"
+    assert not filled_output, f"declared-record rows carry a no-output role: {filled_output}"
 
 
 def test_every_row_cites_an_issue_number() -> None:
