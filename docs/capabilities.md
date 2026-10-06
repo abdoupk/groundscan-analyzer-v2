@@ -83,9 +83,9 @@ Sorted by module, then by capability. `concept` and `implementation` are **empty
 <!-- BEGIN DERIVED TABLE -->
 | capability | kind | role | legacy module | concept | implementation | verdict issue |
 | --- | --- | --- | --- | --- | --- | --- |
-| `ArtifactIdentity` | `output` |  | `groundscan/_util.py` |  |  | #1 |
-| `ScaleEstimate` | `output` |  | `groundscan/_util.py` |  |  | #1 |
-| `ScanAnalysisResult` | `output` |  | `groundscan/api.py` |  |  | #1 |
+| `ArtifactIdentity` | `output` |  | `groundscan/_util.py` | `preserved` | `preserved` | #95 |
+| `ScaleEstimate` | `output` |  | `groundscan/_util.py` | `preserved` | `corrected` | #95 |
+| `ScanAnalysisResult` | `output` |  | `groundscan/api.py` | `redesigned` | `replaced` | #95 |
 | `groundscan/cli/__init__.py` | `no-output` | `callable-surface` | `groundscan/cli/__init__.py` |  |  | #1 |
 | `groundscan/cli/analyze.py` | `no-output` | `callable-surface` | `groundscan/cli/analyze.py` |  |  | #1 |
 | `groundscan/cli/diagnose.py` | `no-output` | `callable-surface` | `groundscan/cli/diagnose.py` |  |  | #1 |
@@ -119,10 +119,10 @@ Sorted by module, then by capability. `concept` and `implementation` are **empty
 | `groundscan/io/base.py` | `no-output` | `callable-surface` | `groundscan/io/base.py` |  |  | #1 |
 | `groundscan/io/generic_csv.py` | `no-output` | `callable-surface` | `groundscan/io/generic_csv.py` |  |  | #1 |
 | `groundscan/io/rover.py` | `no-output` | `callable-surface` | `groundscan/io/rover.py` |  |  | #1 |
-| `Candidate` | `output` |  | `groundscan/models.py` |  |  | #1 |
-| `CoordinateSemantics` | `output` |  | `groundscan/models.py` |  |  | #1 |
-| `ScanData` | `output` |  | `groundscan/models.py` |  |  | #1 |
-| `ScanMetadata` | `output` |  | `groundscan/models.py` |  |  | #1 |
+| `Candidate` | `output` |  | `groundscan/models.py` | `redesigned` | `replaced` | #95 |
+| `CoordinateSemantics` | `output` |  | `groundscan/models.py` | `redesigned` | `replaced` | #95 |
+| `ScanData` | `output` |  | `groundscan/models.py` | `redesigned` | `replaced` | #95 |
+| `ScanMetadata` | `output` |  | `groundscan/models.py` | `redesigned` | `replaced` | #95 |
 | `AnalysisConfig` | `output` |  | `groundscan/services/config.py` |  |  | #1 |
 | `groundscan/services/machine_contract.py` | `no-output` | `callable-surface` | `groundscan/services/machine_contract.py` |  |  | #1 |
 | `groundscan/services/single_scan.py` | `no-output` | `callable-surface` | `groundscan/services/single_scan.py` |  |  | #1 |
