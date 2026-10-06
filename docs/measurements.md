@@ -210,7 +210,7 @@ The manifest is listed because this file quotes it — `independent_field_ground
 | component count drifts **0-8** at a fixed level | count spread across trials | `undeclared-protocol`, level, connectivity, background, scale | `unpinned` | Superseded by #42's per-trial **multisets** at a declared level, which is the form [#32](https://github.com/abdoupk/groundscan-analyzer-v2/issues/32) decision 4 requires. A drift *range* is what this ticket recorded and a multiset is what the contract ships. |
 | solidity / compactness **exact per-component, matched by position, in every file, all trials** | ratio stability under perturbation | `undeclared-protocol`, level, connectivity, background | `unpinned` | Trial count and seed not recorded. |
 | compactness **0.5890** vs **0.6702** | ring vs notched pair | connectivity, level, lattice | `unpinned` | The source cells are not identified in the ticket. |
-| `Tunnel - Original` **1** distinct fractional part, `Tunnel - Control` **106** | value integrality | — | exempt (raw column) | |
+| `Tunnel - Original` **0** distinct fractional parts; fractional exports `Tunnel - Control` **235 of 248**, `Iron Box` **203 of 247**, `Pipeline` **92 of 320** | value integrality | — | exempt (raw column) | **Counted over the decimal text as written: distinct fractional parts among rows that carry one.** Replaces **1** / **106**, which used a different counting method; re-measured independently with the same result, plus Iron Box and Pipeline, which join this row and stand nowhere else. Conclusion undisturbed: six of nine integral, and the repeat pair straddles the divide. |
 
 ### [The order-dependence inventory and its tie rules](https://github.com/abdoupk/groundscan-analyzer-v2/issues/15)
 
