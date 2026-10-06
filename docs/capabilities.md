@@ -86,137 +86,137 @@ Sorted by module, then by capability. `concept` and `implementation` are **empty
 | `ArtifactIdentity` | `output` |  | `groundscan/_util.py` | `preserved` | `preserved` | #95 |
 | `ScaleEstimate` | `output` |  | `groundscan/_util.py` | `preserved` | `corrected` | #95 |
 | `ScanAnalysisResult` | `output` |  | `groundscan/api.py` | `redesigned` | `replaced` | #95 |
-| `groundscan/cli/__init__.py` | `no-output` | `callable-surface` | `groundscan/cli/__init__.py` |  |  | #1 |
-| `groundscan/cli/analyze.py` | `no-output` | `callable-surface` | `groundscan/cli/analyze.py` |  |  | #1 |
-| `groundscan/cli/diagnose.py` | `no-output` | `callable-surface` | `groundscan/cli/diagnose.py` |  |  | #1 |
-| `groundscan/cli/quality.py` | `no-output` | `callable-surface` | `groundscan/cli/quality.py` |  |  | #1 |
-| `groundscan/cli/validate.py` | `no-output` | `callable-surface` | `groundscan/cli/validate.py` |  |  | #1 |
-| `AnomalyMap` | `output` |  | `groundscan/core/anomaly.py` |  |  | #1 |
-| `ArtifactMap` | `output` |  | `groundscan/core/anomaly.py` |  |  | #1 |
-| `groundscan/core/background.py` | `no-output` | `callable-surface` | `groundscan/core/background.py` |  |  | #1 |
-| `ClassificationConfig` | `output` |  | `groundscan/core/classify.py` |  |  | #1 |
-| `EvidenceModelConfig` | `output` |  | `groundscan/core/evidence.py` |  |  | #1 |
-| `Grid2D` | `output` |  | `groundscan/core/grid.py` |  |  | #1 |
-| `groundscan/core/morphology.py` | `no-output` | `callable-surface` | `groundscan/core/morphology.py` |  |  | #1 |
-| `ExtractionRescuePolicy` | `output` |  | `groundscan/core/rescue.py` |  |  | #1 |
-| `groundscan/core/shape.py` | `no-output` | `callable-surface` | `groundscan/core/shape.py` |  |  | #1 |
-| `ZigzagDiagnosis` | `output` |  | `groundscan/core/zigzag.py` |  |  | #1 |
-| `DipoleMergeConfig` | `output` |  | `groundscan/diagnostics/dipole.py` |  |  | #1 |
-| `DipolePairAssessment` | `output` |  | `groundscan/diagnostics/dipole.py` |  |  | #1 |
-| `LoadedExport` | `output` |  | `groundscan/diagnostics/okm.py` |  |  | #1 |
-| `groundscan/diagnostics/quality_probe.py` | `no-output` | `callable-surface` | `groundscan/diagnostics/quality_probe.py` |  |  | #1 |
-| `RoleShadow` | `output` |  | `groundscan/diagnostics/shadow.py` |  |  | #1 |
-| `ScaleShadow` | `output` |  | `groundscan/diagnostics/shadow.py` |  |  | #1 |
-| `ShadowMeasurement` | `output` |  | `groundscan/diagnostics/shadow.py` |  |  | #1 |
-| `SolidityShadow` | `output` |  | `groundscan/diagnostics/shadow.py` |  |  | #1 |
-| `FieldQualityAssessment` | `output` |  | `groundscan/gates/field_quality.py` |  |  | #1 |
-| `GeometrySummary` | `output` |  | `groundscan/gates/geometry.py` |  |  | #1 |
-| `OperationalAssessment` | `output` |  | `groundscan/gates/operational.py` |  |  | #1 |
-| `QualityAssessment` | `output` |  | `groundscan/gates/quality.py` |  |  | #1 |
-| `ScreeningPolicy` | `output` |  | `groundscan/gates/screening.py` |  |  | #1 |
-| `groundscan/gates/thresholds.py` | `no-output` | `callable-surface` | `groundscan/gates/thresholds.py` |  |  | #1 |
-| `groundscan/io/__init__.py` | `no-output` | `callable-surface` | `groundscan/io/__init__.py` |  |  | #1 |
-| `groundscan/io/base.py` | `no-output` | `callable-surface` | `groundscan/io/base.py` |  |  | #1 |
-| `groundscan/io/generic_csv.py` | `no-output` | `callable-surface` | `groundscan/io/generic_csv.py` |  |  | #1 |
-| `groundscan/io/rover.py` | `no-output` | `callable-surface` | `groundscan/io/rover.py` |  |  | #1 |
+| `groundscan/cli/__init__.py` | `no-output` | `callable-surface` | `groundscan/cli/__init__.py` | `removed` | `removed` | #96 |
+| `groundscan/cli/analyze.py` | `no-output` | `callable-surface` | `groundscan/cli/analyze.py` | `removed` | `removed` | #96 |
+| `groundscan/cli/diagnose.py` | `no-output` | `callable-surface` | `groundscan/cli/diagnose.py` | `removed` | `removed` | #96 |
+| `groundscan/cli/quality.py` | `no-output` | `callable-surface` | `groundscan/cli/quality.py` | `removed` | `removed` | #96 |
+| `groundscan/cli/validate.py` | `no-output` | `callable-surface` | `groundscan/cli/validate.py` | `removed` | `removed` | #96 |
+| `AnomalyMap` | `output` |  | `groundscan/core/anomaly.py` | `preserved` | `corrected` | #97 |
+| `ArtifactMap` | `output` |  | `groundscan/core/anomaly.py` | `preserved` | `preserved` | #97 |
+| `groundscan/core/background.py` | `no-output` | `callable-surface` | `groundscan/core/background.py` | `preserved` | `corrected` | #97 |
+| `ClassificationConfig` | `output` |  | `groundscan/core/classify.py` | `removed` | `removed` | #97 |
+| `EvidenceModelConfig` | `output` |  | `groundscan/core/evidence.py` | `preserved` | `preserved` | #97 |
+| `Grid2D` | `output` |  | `groundscan/core/grid.py` | `redesigned` | `replaced` | #97 |
+| `groundscan/core/morphology.py` | `no-output` | `callable-surface` | `groundscan/core/morphology.py` | `preserved` | `preserved` | #97 |
+| `ExtractionRescuePolicy` | `output` |  | `groundscan/core/rescue.py` | `deferred` | `preserved` | #97 |
+| `groundscan/core/shape.py` | `no-output` | `callable-surface` | `groundscan/core/shape.py` | `preserved` | `corrected` | #97 |
+| `ZigzagDiagnosis` | `output` |  | `groundscan/core/zigzag.py` | `removed` | `removed` | #97 |
+| `DipoleMergeConfig` | `output` |  | `groundscan/diagnostics/dipole.py` | `preserved` | `preserved` | #98 |
+| `DipolePairAssessment` | `output` |  | `groundscan/diagnostics/dipole.py` | `preserved` | `corrected` | #98 |
+| `LoadedExport` | `output` |  | `groundscan/diagnostics/okm.py` | `removed` | `removed` | #98 |
+| `groundscan/diagnostics/quality_probe.py` | `no-output` | `callable-surface` | `groundscan/diagnostics/quality_probe.py` | `preserved` | `preserved` | #98 |
+| `RoleShadow` | `output` |  | `groundscan/diagnostics/shadow.py` | `removed` | `removed` | #98 |
+| `ScaleShadow` | `output` |  | `groundscan/diagnostics/shadow.py` | `removed` | `removed` | #98 |
+| `ShadowMeasurement` | `output` |  | `groundscan/diagnostics/shadow.py` | `removed` | `removed` | #98 |
+| `SolidityShadow` | `output` |  | `groundscan/diagnostics/shadow.py` | `removed` | `removed` | #98 |
+| `FieldQualityAssessment` | `output` |  | `groundscan/gates/field_quality.py` | `redesigned` | `replaced` | #99 |
+| `GeometrySummary` | `output` |  | `groundscan/gates/geometry.py` | `redesigned` | `replaced` | #99 |
+| `OperationalAssessment` | `output` |  | `groundscan/gates/operational.py` | `redesigned` | `replaced` | #99 |
+| `QualityAssessment` | `output` |  | `groundscan/gates/quality.py` | `removed` | `removed` | #99 |
+| `ScreeningPolicy` | `output` |  | `groundscan/gates/screening.py` | `removed` | `removed` | #99 |
+| `groundscan/gates/thresholds.py` | `no-output` | `callable-surface` | `groundscan/gates/thresholds.py` | `removed` | `removed` | #99 |
+| `groundscan/io/__init__.py` | `no-output` | `callable-surface` | `groundscan/io/__init__.py` | `removed` | `removed` | #100 |
+| `groundscan/io/base.py` | `no-output` | `callable-surface` | `groundscan/io/base.py` | `removed` | `removed` | #100 |
+| `groundscan/io/generic_csv.py` | `no-output` | `callable-surface` | `groundscan/io/generic_csv.py` | `removed` | `removed` | #100 |
+| `groundscan/io/rover.py` | `no-output` | `callable-surface` | `groundscan/io/rover.py` | `redesigned` | `replaced` | #100 |
 | `Candidate` | `output` |  | `groundscan/models.py` | `redesigned` | `replaced` | #95 |
 | `CoordinateSemantics` | `output` |  | `groundscan/models.py` | `redesigned` | `replaced` | #95 |
 | `ScanData` | `output` |  | `groundscan/models.py` | `redesigned` | `replaced` | #95 |
 | `ScanMetadata` | `output` |  | `groundscan/models.py` | `redesigned` | `replaced` | #95 |
-| `AnalysisConfig` | `output` |  | `groundscan/services/config.py` |  |  | #1 |
-| `groundscan/services/machine_contract.py` | `no-output` | `callable-surface` | `groundscan/services/machine_contract.py` |  |  | #1 |
-| `groundscan/services/single_scan.py` | `no-output` | `callable-surface` | `groundscan/services/single_scan.py` |  |  | #1 |
-| `CandidateEnrichment` | `output` |  | `groundscan/services/single_scan_stages.py` |  |  | #1 |
-| `groundscan/site/agreement.py` | `no-output` | `callable-surface` | `groundscan/site/agreement.py` |  |  | #1 |
-| `MultiScanResult` | `output` |  | `groundscan/site/analyze_site.py` |  |  | #1 |
-| `ScanObservation` | `output` |  | `groundscan/site/analyze_site.py` |  |  | #1 |
-| `SiteRegistration` | `output` |  | `groundscan/site/analyze_site.py` |  |  | #1 |
-| `ConflictBuildContext` | `output` |  | `groundscan/site/conflict_verdicts.py` |  |  | #1 |
-| `groundscan/site/consensus.py` | `no-output` | `private-only` | `groundscan/site/consensus.py` |  |  | #1 |
-| `DepthFusion` | `output` |  | `groundscan/site/fusion.py` |  |  | #1 |
-| `GeometryFusion` | `output` |  | `groundscan/site/fusion.py` |  |  | #1 |
-| `AlignmentResult` | `output` |  | `groundscan/site/registration.py` |  |  | #1 |
-| `SeparationConfig` | `output` |  | `groundscan/site/separation.py` |  |  | #1 |
-| `groundscan/site/separation_diagnostics.py` | `no-output` | `callable-surface` | `groundscan/site/separation_diagnostics.py` |  |  | #1 |
-| `groundscan/site/separation_dipole.py` | `no-output` | `callable-surface` | `groundscan/site/separation_dipole.py` |  |  | #1 |
-| `groundscan/site/separation_fragments.py` | `no-output` | `private-only` | `groundscan/site/separation_fragments.py` |  |  | #1 |
-| `groundscan/site/separation_seeds.py` | `no-output` | `private-only` | `groundscan/site/separation_seeds.py` |  |  | #1 |
-| `UncertaintyProfile` | `output` |  | `groundscan/site/uncertainty.py` |  |  | #1 |
-| `groundscan/site/verdicts.py` | `no-output` | `private-only` | `groundscan/site/verdicts.py` |  |  | #1 |
-| `groundscan/soil/context.py` | `no-output` | `callable-surface` | `groundscan/soil/context.py` |  |  | #1 |
-| `SoilPhysicsDiagnostics` | `output` |  | `groundscan/soil/experimental.py` |  |  | #1 |
-| `CalibrationDataset` | `output` |  | `groundscan/validation/calibration/datasets.py` |  |  | #1 |
-| `PerturbationCase` | `output` |  | `groundscan/validation/calibration/datasets.py` |  |  | #1 |
-| `ProductionShapeMetrics` | `output` |  | `groundscan/validation/calibration/datasets.py` |  |  | #1 |
-| `Provenance` | `output` |  | `groundscan/validation/calibration/datasets.py` |  |  | #1 |
-| `ShapeSample` | `output` |  | `groundscan/validation/calibration/datasets.py` |  |  | #1 |
-| `VendorFixture` | `output` |  | `groundscan/validation/calibration/datasets.py` |  |  | #1 |
-| `MarginObservation` | `output` |  | `groundscan/validation/calibration/decision.py` |  |  | #1 |
-| `PopulationBaseline` | `output` |  | `groundscan/validation/calibration/decision.py` |  |  | #1 |
-| `PopulationMember` | `output` |  | `groundscan/validation/calibration/decision.py` |  |  | #1 |
-| `ThreeSigmaObservation` | `output` |  | `groundscan/validation/calibration/decision.py` |  |  | #1 |
-| `ThresholdSpec` | `output` |  | `groundscan/validation/calibration/decision.py` |  |  | #1 |
-| `EnvelopeRow` | `output` |  | `groundscan/validation/calibration/envelope.py` |  |  | #1 |
-| `CompactnessRow` | `output` |  | `groundscan/validation/calibration/geometry.py` |  |  | #1 |
-| `SolidityBand` | `output` |  | `groundscan/validation/calibration/geometry.py` |  |  | #1 |
-| `SolidityCensusRow` | `output` |  | `groundscan/validation/calibration/geometry.py` |  |  | #1 |
-| `groundscan/validation/calibration/interactions.py` | `no-output` | `callable-surface` | `groundscan/validation/calibration/interactions.py` |  |  | #1 |
-| `ParameterRecord` | `output` |  | `groundscan/validation/calibration/register.py` |  |  | #1 |
-| `DetectorRun` | `output` |  | `groundscan/validation/calibration/resolution.py` |  |  | #1 |
-| `MinSizeObservation` | `output` |  | `groundscan/validation/calibration/resolution.py` |  |  | #1 |
-| `SeparationSummary` | `output` |  | `groundscan/validation/calibration/resolution.py` |  |  | #1 |
-| `SeparationTrial` | `output` |  | `groundscan/validation/calibration/resolution.py` |  |  | #1 |
-| `MultiplicityFinding` | `output` |  | `groundscan/validation/decomposition_reference.py` |  |  | #1 |
-| `PerturbedRun` | `output` |  | `groundscan/validation/decomposition_reference.py` |  |  | #1 |
-| `ResolvableSeparation` | `output` |  | `groundscan/validation/decomposition_reference.py` |  |  | #1 |
-| `ResponseGroup` | `output` |  | `groundscan/validation/decomposition_reference.py` |  |  | #1 |
-| `StabilityVerdict` | `output` |  | `groundscan/validation/decomposition_reference.py` |  |  | #1 |
-| `InputCensus` | `output` |  | `groundscan/validation/decomposition_shadow_report.py` |  |  | #1 |
-| `RunObservation` | `output` |  | `groundscan/validation/decomposition_shadow_report.py` |  |  | #1 |
-| `groundscan/validation/extraction.py` | `no-output` | `private-only` | `groundscan/validation/extraction.py` |  |  | #1 |
-| `FieldTruthCase` | `output` |  | `groundscan/validation/field.py` |  |  | #1 |
-| `groundscan/validation/fixtures.py` | `no-output` | `constants-only` | `groundscan/validation/fixtures.py` |  |  | #1 |
-| `groundscan/validation/golden.py` | `no-output` | `callable-surface` | `groundscan/validation/golden.py` |  |  | #1 |
-| `groundscan/validation/payload_schema.py` | `no-output` | `callable-surface` | `groundscan/validation/payload_schema.py` |  |  | #1 |
-| `groundscan/validation/profiles.py` | `no-output` | `constants-only` | `groundscan/validation/profiles.py` |  |  | #1 |
-| `ContaminationOutcome` | `output` |  | `groundscan/validation/scale_contamination_experiment.py` |  |  | #1 |
-| `Criterion` | `output` |  | `groundscan/validation/scale_reference.py` |  |  | #1 |
-| `QuantisationVerdict` | `output` |  | `groundscan/validation/scale_reference.py` |  |  | #1 |
-| `RegimeCensus` | `output` |  | `groundscan/validation/scale_reference.py` |  |  | #1 |
-| `ScaleCase` | `output` |  | `groundscan/validation/scale_reference.py` |  |  | #1 |
-| `ResidualComparison` | `output` |  | `groundscan/validation/scale_shadow_report.py` |  |  | #1 |
-| `ScaleImpact` | `output` |  | `groundscan/validation/scale_shadow_report.py` |  |  | #1 |
-| `ScaleShadowReport` | `output` |  | `groundscan/validation/scale_shadow_report.py` |  |  | #1 |
-| `groundscan/validation/science_reporting.py` | `no-output` | `callable-surface` | `groundscan/validation/science_reporting.py` |  |  | #1 |
-| `groundscan/validation/scientific.py` | `no-output` | `callable-surface` | `groundscan/validation/scientific.py` |  |  | #1 |
-| `ReferenceCase` | `output` |  | `groundscan/validation/solidity_reference.py` |  |  | #1 |
-| `SolidityReference` | `output` |  | `groundscan/validation/solidity_reference.py` |  |  | #1 |
-| `ClassificationImpact` | `output` |  | `groundscan/validation/solidity_shadow_report.py` |  |  | #1 |
-| `ComponentComparison` | `output` |  | `groundscan/validation/solidity_shadow_report.py` |  |  | #1 |
-| `SolidityShadowReport` | `output` |  | `groundscan/validation/solidity_shadow_report.py` |  |  | #1 |
-| `groundscan/validation/synthetic_core/acquisition_stress.py` | `no-output` | `callable-surface` | `groundscan/validation/synthetic_core/acquisition_stress.py` |  |  | #1 |
-| `BenchmarkRow` | `output` |  | `groundscan/validation/synthetic_core/benchmark.py` |  |  | #1 |
-| `AggregateMetrics` | `output` |  | `groundscan/validation/synthetic_core/benchmark_large.py` |  |  | #1 |
-| `CaseResult` | `output` |  | `groundscan/validation/synthetic_core/benchmark_large.py` |  |  | #1 |
-| `SyntheticScenario` | `output` |  | `groundscan/validation/synthetic_core/core.py` |  |  | #1 |
-| `SyntheticTarget` | `output` |  | `groundscan/validation/synthetic_core/core.py` |  |  | #1 |
-| `CrossResolutionFinding` | `output` |  | `groundscan/validation/synthetic_core/cross_resolution.py` |  |  | #1 |
-| `LevelRecord` | `output` |  | `groundscan/validation/synthetic_core/cross_resolution.py` |  |  | #1 |
-| `PhysicalResponse` | `output` |  | `groundscan/validation/synthetic_core/cross_resolution.py` |  |  | #1 |
-| `PhysicalScene` | `output` |  | `groundscan/validation/synthetic_core/cross_resolution.py` |  |  | #1 |
-| `Resolution` | `output` |  | `groundscan/validation/synthetic_core/cross_resolution.py` |  |  | #1 |
-| `ResolutionEnsemble` | `output` |  | `groundscan/validation/synthetic_core/cross_resolution.py` |  |  | #1 |
-| `ResolutionObservation` | `output` |  | `groundscan/validation/synthetic_core/cross_resolution.py` |  |  | #1 |
-| `groundscan/validation/synthetic_core/cross_resolution_cases.py` | `no-output` | `callable-surface` | `groundscan/validation/synthetic_core/cross_resolution_cases.py` |  |  | #1 |
-| `Variation` | `output` |  | `groundscan/validation/synthetic_core/cross_scan_variation_audit.py` |  |  | #1 |
-| `StressCaseResult` | `output` |  | `groundscan/validation/synthetic_core/geology_local.py` |  |  | #1 |
-| `groundscan/validation/synthetic_core/hard_regression.py` | `no-output` | `callable-surface` | `groundscan/validation/synthetic_core/hard_regression.py` |  |  | #1 |
-| `groundscan/validation/synthetic_core/metamorphic.py` | `no-output` | `callable-surface` | `groundscan/validation/synthetic_core/metamorphic.py` |  |  | #1 |
-| `MultiScanSiteSpec` | `output` |  | `groundscan/validation/synthetic_core/multiscan_benchmark.py` |  |  | #1 |
-| `NegativeCase` | `output` |  | `groundscan/validation/synthetic_core/negative.py` |  |  | #1 |
-| `groundscan/validation/synthetic_core/oracles.py` | `no-output` | `callable-surface` | `groundscan/validation/synthetic_core/oracles.py` |  |  | #1 |
-| `PerturbationProfile` | `output` |  | `groundscan/validation/synthetic_core/robustness.py` |  |  | #1 |
-| `VendorTruthCase` | `output` |  | `groundscan/validation/vendor.py` |  |  | #1 |
+| `AnalysisConfig` | `output` |  | `groundscan/services/config.py` | `redesigned` | `replaced` | #101 |
+| `groundscan/services/machine_contract.py` | `no-output` | `callable-surface` | `groundscan/services/machine_contract.py` | `redesigned` | `replaced` | #101 |
+| `groundscan/services/single_scan.py` | `no-output` | `callable-surface` | `groundscan/services/single_scan.py` | `redesigned` | `replaced` | #101 |
+| `CandidateEnrichment` | `output` |  | `groundscan/services/single_scan_stages.py` | `preserved` | `corrected` | #101 |
+| `groundscan/site/agreement.py` | `no-output` | `callable-surface` | `groundscan/site/agreement.py` | `preserved` | `corrected` | #102 |
+| `MultiScanResult` | `output` |  | `groundscan/site/analyze_site.py` | `redesigned` | `replaced` | #102 |
+| `ScanObservation` | `output` |  | `groundscan/site/analyze_site.py` | `redesigned` | `replaced` | #102 |
+| `SiteRegistration` | `output` |  | `groundscan/site/analyze_site.py` | `redesigned` | `replaced` | #102 |
+| `ConflictBuildContext` | `output` |  | `groundscan/site/conflict_verdicts.py` | `preserved` | `corrected` | #102 |
+| `groundscan/site/consensus.py` | `no-output` | `private-only` | `groundscan/site/consensus.py` | `preserved` | `corrected` | #102 |
+| `DepthFusion` | `output` |  | `groundscan/site/fusion.py` | `redesigned` | `replaced` | #102 |
+| `GeometryFusion` | `output` |  | `groundscan/site/fusion.py` | `redesigned` | `replaced` | #102 |
+| `AlignmentResult` | `output` |  | `groundscan/site/registration.py` | `redesigned` | `replaced` | #102 |
+| `SeparationConfig` | `output` |  | `groundscan/site/separation.py` | `preserved` | `preserved` | #102 |
+| `groundscan/site/separation_diagnostics.py` | `no-output` | `callable-surface` | `groundscan/site/separation_diagnostics.py` | `preserved` | `preserved` | #102 |
+| `groundscan/site/separation_dipole.py` | `no-output` | `callable-surface` | `groundscan/site/separation_dipole.py` | `preserved` | `preserved` | #102 |
+| `groundscan/site/separation_fragments.py` | `no-output` | `private-only` | `groundscan/site/separation_fragments.py` | `preserved` | `corrected` | #102 |
+| `groundscan/site/separation_seeds.py` | `no-output` | `private-only` | `groundscan/site/separation_seeds.py` | `preserved` | `preserved` | #102 |
+| `UncertaintyProfile` | `output` |  | `groundscan/site/uncertainty.py` | `redesigned` | `replaced` | #102 |
+| `groundscan/site/verdicts.py` | `no-output` | `private-only` | `groundscan/site/verdicts.py` | `removed` | `removed` | #102 |
+| `groundscan/soil/context.py` | `no-output` | `callable-surface` | `groundscan/soil/context.py` | `preserved` | `corrected` | #103 |
+| `SoilPhysicsDiagnostics` | `output` |  | `groundscan/soil/experimental.py` | `removed` | `removed` | #103 |
+| `CalibrationDataset` | `output` |  | `groundscan/validation/calibration/datasets.py` | `redesigned` | `removed` | #105 |
+| `PerturbationCase` | `output` |  | `groundscan/validation/calibration/datasets.py` | `redesigned` | `removed` | #105 |
+| `ProductionShapeMetrics` | `output` |  | `groundscan/validation/calibration/datasets.py` | `preserved` | `removed` | #105 |
+| `Provenance` | `output` |  | `groundscan/validation/calibration/datasets.py` | `preserved` | `removed` | #105 |
+| `ShapeSample` | `output` |  | `groundscan/validation/calibration/datasets.py` | `preserved` | `removed` | #105 |
+| `VendorFixture` | `output` |  | `groundscan/validation/calibration/datasets.py` | `redesigned` | `removed` | #105 |
+| `MarginObservation` | `output` |  | `groundscan/validation/calibration/decision.py` | `removed` | `removed` | #105 |
+| `PopulationBaseline` | `output` |  | `groundscan/validation/calibration/decision.py` | `removed` | `removed` | #105 |
+| `PopulationMember` | `output` |  | `groundscan/validation/calibration/decision.py` | `removed` | `removed` | #105 |
+| `ThreeSigmaObservation` | `output` |  | `groundscan/validation/calibration/decision.py` | `removed` | `removed` | #105 |
+| `ThresholdSpec` | `output` |  | `groundscan/validation/calibration/decision.py` | `removed` | `removed` | #105 |
+| `EnvelopeRow` | `output` |  | `groundscan/validation/calibration/envelope.py` | `redesigned` | `removed` | #105 |
+| `CompactnessRow` | `output` |  | `groundscan/validation/calibration/geometry.py` | `preserved` | `removed` | #105 |
+| `SolidityBand` | `output` |  | `groundscan/validation/calibration/geometry.py` | `removed` | `removed` | #105 |
+| `SolidityCensusRow` | `output` |  | `groundscan/validation/calibration/geometry.py` | `preserved` | `removed` | #105 |
+| `groundscan/validation/calibration/interactions.py` | `no-output` | `callable-surface` | `groundscan/validation/calibration/interactions.py` | `removed` | `removed` | #105 |
+| `ParameterRecord` | `output` |  | `groundscan/validation/calibration/register.py` | `redesigned` | `removed` | #105 |
+| `DetectorRun` | `output` |  | `groundscan/validation/calibration/resolution.py` | `removed` | `removed` | #105 |
+| `MinSizeObservation` | `output` |  | `groundscan/validation/calibration/resolution.py` | `removed` | `removed` | #105 |
+| `SeparationSummary` | `output` |  | `groundscan/validation/calibration/resolution.py` | `removed` | `removed` | #105 |
+| `SeparationTrial` | `output` |  | `groundscan/validation/calibration/resolution.py` | `removed` | `removed` | #105 |
+| `MultiplicityFinding` | `output` |  | `groundscan/validation/decomposition_reference.py` | `removed` | `removed` | #104 |
+| `PerturbedRun` | `output` |  | `groundscan/validation/decomposition_reference.py` | `removed` | `removed` | #104 |
+| `ResolvableSeparation` | `output` |  | `groundscan/validation/decomposition_reference.py` | `removed` | `removed` | #104 |
+| `ResponseGroup` | `output` |  | `groundscan/validation/decomposition_reference.py` | `removed` | `removed` | #104 |
+| `StabilityVerdict` | `output` |  | `groundscan/validation/decomposition_reference.py` | `removed` | `removed` | #104 |
+| `InputCensus` | `output` |  | `groundscan/validation/decomposition_shadow_report.py` | `removed` | `removed` | #104 |
+| `RunObservation` | `output` |  | `groundscan/validation/decomposition_shadow_report.py` | `removed` | `removed` | #104 |
+| `groundscan/validation/extraction.py` | `no-output` | `private-only` | `groundscan/validation/extraction.py` | `removed` | `removed` | #104 |
+| `FieldTruthCase` | `output` |  | `groundscan/validation/field.py` | `removed` | `removed` | #104 |
+| `groundscan/validation/fixtures.py` | `no-output` | `constants-only` | `groundscan/validation/fixtures.py` | `removed` | `removed` | #104 |
+| `groundscan/validation/golden.py` | `no-output` | `callable-surface` | `groundscan/validation/golden.py` | `removed` | `removed` | #104 |
+| `groundscan/validation/payload_schema.py` | `no-output` | `callable-surface` | `groundscan/validation/payload_schema.py` | `removed` | `removed` | #104 |
+| `groundscan/validation/profiles.py` | `no-output` | `constants-only` | `groundscan/validation/profiles.py` | `removed` | `removed` | #104 |
+| `ContaminationOutcome` | `output` |  | `groundscan/validation/scale_contamination_experiment.py` | `removed` | `removed` | #104 |
+| `Criterion` | `output` |  | `groundscan/validation/scale_reference.py` | `removed` | `removed` | #104 |
+| `QuantisationVerdict` | `output` |  | `groundscan/validation/scale_reference.py` | `removed` | `removed` | #104 |
+| `RegimeCensus` | `output` |  | `groundscan/validation/scale_reference.py` | `removed` | `removed` | #104 |
+| `ScaleCase` | `output` |  | `groundscan/validation/scale_reference.py` | `removed` | `removed` | #104 |
+| `ResidualComparison` | `output` |  | `groundscan/validation/scale_shadow_report.py` | `removed` | `removed` | #104 |
+| `ScaleImpact` | `output` |  | `groundscan/validation/scale_shadow_report.py` | `removed` | `removed` | #104 |
+| `ScaleShadowReport` | `output` |  | `groundscan/validation/scale_shadow_report.py` | `removed` | `removed` | #104 |
+| `groundscan/validation/science_reporting.py` | `no-output` | `callable-surface` | `groundscan/validation/science_reporting.py` | `removed` | `removed` | #104 |
+| `groundscan/validation/scientific.py` | `no-output` | `callable-surface` | `groundscan/validation/scientific.py` | `removed` | `removed` | #104 |
+| `ReferenceCase` | `output` |  | `groundscan/validation/solidity_reference.py` | `removed` | `removed` | #104 |
+| `SolidityReference` | `output` |  | `groundscan/validation/solidity_reference.py` | `removed` | `removed` | #104 |
+| `ClassificationImpact` | `output` |  | `groundscan/validation/solidity_shadow_report.py` | `removed` | `removed` | #104 |
+| `ComponentComparison` | `output` |  | `groundscan/validation/solidity_shadow_report.py` | `removed` | `removed` | #104 |
+| `SolidityShadowReport` | `output` |  | `groundscan/validation/solidity_shadow_report.py` | `removed` | `removed` | #104 |
+| `groundscan/validation/synthetic_core/acquisition_stress.py` | `no-output` | `callable-surface` | `groundscan/validation/synthetic_core/acquisition_stress.py` | `removed` | `removed` | #106 |
+| `BenchmarkRow` | `output` |  | `groundscan/validation/synthetic_core/benchmark.py` | `removed` | `removed` | #106 |
+| `AggregateMetrics` | `output` |  | `groundscan/validation/synthetic_core/benchmark_large.py` | `removed` | `removed` | #106 |
+| `CaseResult` | `output` |  | `groundscan/validation/synthetic_core/benchmark_large.py` | `removed` | `removed` | #106 |
+| `SyntheticScenario` | `output` |  | `groundscan/validation/synthetic_core/core.py` | `preserved` | `removed` | #106 |
+| `SyntheticTarget` | `output` |  | `groundscan/validation/synthetic_core/core.py` | `preserved` | `removed` | #106 |
+| `CrossResolutionFinding` | `output` |  | `groundscan/validation/synthetic_core/cross_resolution.py` | `removed` | `removed` | #106 |
+| `LevelRecord` | `output` |  | `groundscan/validation/synthetic_core/cross_resolution.py` | `removed` | `removed` | #106 |
+| `PhysicalResponse` | `output` |  | `groundscan/validation/synthetic_core/cross_resolution.py` | `removed` | `removed` | #106 |
+| `PhysicalScene` | `output` |  | `groundscan/validation/synthetic_core/cross_resolution.py` | `removed` | `removed` | #106 |
+| `Resolution` | `output` |  | `groundscan/validation/synthetic_core/cross_resolution.py` | `removed` | `removed` | #106 |
+| `ResolutionEnsemble` | `output` |  | `groundscan/validation/synthetic_core/cross_resolution.py` | `removed` | `removed` | #106 |
+| `ResolutionObservation` | `output` |  | `groundscan/validation/synthetic_core/cross_resolution.py` | `removed` | `removed` | #106 |
+| `groundscan/validation/synthetic_core/cross_resolution_cases.py` | `no-output` | `callable-surface` | `groundscan/validation/synthetic_core/cross_resolution_cases.py` | `removed` | `removed` | #106 |
+| `Variation` | `output` |  | `groundscan/validation/synthetic_core/cross_scan_variation_audit.py` | `removed` | `removed` | #106 |
+| `StressCaseResult` | `output` |  | `groundscan/validation/synthetic_core/geology_local.py` | `removed` | `removed` | #106 |
+| `groundscan/validation/synthetic_core/hard_regression.py` | `no-output` | `callable-surface` | `groundscan/validation/synthetic_core/hard_regression.py` | `removed` | `removed` | #106 |
+| `groundscan/validation/synthetic_core/metamorphic.py` | `no-output` | `callable-surface` | `groundscan/validation/synthetic_core/metamorphic.py` | `removed` | `removed` | #106 |
+| `MultiScanSiteSpec` | `output` |  | `groundscan/validation/synthetic_core/multiscan_benchmark.py` | `removed` | `removed` | #106 |
+| `NegativeCase` | `output` |  | `groundscan/validation/synthetic_core/negative.py` | `preserved` | `removed` | #106 |
+| `groundscan/validation/synthetic_core/oracles.py` | `no-output` | `callable-surface` | `groundscan/validation/synthetic_core/oracles.py` | `removed` | `removed` | #106 |
+| `PerturbationProfile` | `output` |  | `groundscan/validation/synthetic_core/robustness.py` | `removed` | `removed` | #106 |
+| `VendorTruthCase` | `output` |  | `groundscan/validation/vendor.py` | `removed` | `removed` | #104 |
 | `groundscan_research/adaptive_scale_separation.py` | `no-output` | `callable-surface` | `groundscan_research/adaptive_scale_separation.py` |  |  | #1 |
 | `groundscan_research/background_decomposition.py` | `no-output` | `callable-surface` | `groundscan_research/background_decomposition.py` |  |  | #1 |
 | `groundscan_research/background_factor_attribution.py` | `no-output` | `callable-surface` | `groundscan_research/background_factor_attribution.py` |  |  | #1 |
@@ -244,10 +244,10 @@ Sorted by module, then by capability. `concept` and `implementation` are **empty
 | `groundscan_research/registration_semantics.py` | `no-output` | `callable-surface` | `groundscan_research/registration_semantics.py` |  |  | #1 |
 | `groundscan_research/spatial_context_audit.py` | `no-output` | `callable-surface` | `groundscan_research/spatial_context_audit.py` |  |  | #1 |
 | `groundscan_research/synthetic_generator_independence.py` | `no-output` | `callable-surface` | `groundscan_research/synthetic_generator_independence.py` |  |  | #1 |
-| `tools/benchmark.py` | `no-output` | `callable-surface` | `tools/benchmark.py` |  |  | #1 |
-| `tools/calibration_report.py` | `no-output` | `callable-surface` | `tools/calibration_report.py` |  |  | #1 |
-| `tools/decomposition_shadow_report.py` | `no-output` | `callable-surface` | `tools/decomposition_shadow_report.py` |  |  | #1 |
-| `Mutation` | `output` |  | `tools/mutation_ratchet.py` |  |  | #1 |
+| `tools/benchmark.py` | `no-output` | `callable-surface` | `tools/benchmark.py` | `removed` | `removed` | #107 |
+| `tools/calibration_report.py` | `no-output` | `callable-surface` | `tools/calibration_report.py` | `removed` | `removed` | #107 |
+| `tools/decomposition_shadow_report.py` | `no-output` | `callable-surface` | `tools/decomposition_shadow_report.py` | `removed` | `removed` | #107 |
+| `Mutation` | `output` |  | `tools/mutation_ratchet.py` | `removed` | `removed` | #107 |
 
 <!-- END DERIVED TABLE -->
 
