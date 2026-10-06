@@ -30,16 +30,22 @@ BEGIN_MARKER = "<!-- BEGIN DERIVED TABLE -->"
 END_MARKER = "<!-- END DERIVED TABLE -->"
 
 KINDS = frozenset({"output", "no-output"})
-SHAPES = frozenset({"facade", "private-only", "constants-only"})
+ROLES = frozenset({"callable-surface", "private-only", "constants-only"})
 ISSUE_REFERENCE = re.compile(r"^#\d+$")
 
-#: The four rules #90 requires the artefact to state rather than only enforce.
-#: Each is a full bullet lead, asserted inside the Rules section - so restating
-#: the same words in the Checks section cannot satisfy it.
+#: The rules the artefact must state rather than only enforce. Each is a full
+#: bullet lead, asserted inside the Rules section - so restating the same words
+#: in the Checks section cannot satisfy it.
 STATED_RULES = (
     "**The denominator is every `.py` under `docs/legacy/` except",
     "**No row carries verdict prose.**",
     "**Rows are legacy-side.",
+    "**This census holds two subjects inside one file",
+    "**A re-export surface takes no row",
+    "**The old package-marker reason was false",
+    "**`role` is populated exactly when",
+    "**A private-only row's verdict is decided at the row",
+    "**The count of covered modules is derived",
     "**The lint verifies that a name exists, never that a list is complete.**",
 )
 
@@ -130,15 +136,21 @@ def test_every_row_kind_is_in_the_closed_set() -> None:
     assert {row["kind"].strip("` ") for row in rows()} <= KINDS
 
 
-def test_every_row_shape_is_in_the_closed_set() -> None:
-    shapes = {row["shape"].strip("` ") for row in rows() if row["shape"]}
-    assert shapes <= SHAPES
+def test_every_row_role_is_in_the_closed_set() -> None:
+    roles = {row["role"].strip("` ") for row in rows() if row["role"]}
+    assert roles <= ROLES
 
 
-def test_an_output_row_carries_no_shape() -> None:
-    """A shape classifies a module that emits nothing, so an output row has none."""
-    offenders = [row["capability"] for row in rows() if row["kind"] == "`output`" and row["shape"]]
-    assert not offenders, f"output rows carry a no-output shape: {offenders}"
+def test_role_is_populated_exactly_when_kind_is_no_output() -> None:
+    """A role classifies a location emitting nothing; an output row has none."""
+    blank_no_output = [
+        row["capability"] for row in rows() if row["kind"] == "`no-output`" and not row["role"]
+    ]
+    assert not blank_no_output, f"no-output rows with no role: {blank_no_output}"
+    filled_output = [
+        row["capability"] for row in rows() if row["kind"] == "`output`" and row["role"]
+    ]
+    assert not filled_output, f"output rows carry a no-output role: {filled_output}"
 
 
 def test_every_row_cites_an_issue_number() -> None:
@@ -201,22 +213,60 @@ def _tree_dependent() -> ModuleType:
     return load_deriver()
 
 
-def test_every_denominator_module_carries_a_row() -> None:
+def test_the_covered_count_is_never_written_as_a_numeral() -> None:
+    """`modules_covered` is derived and must never be stated as a numeral."""
+    text = artefact_text()
+    assert "never written here" in text
+    assert "134 of" not in text
+    assert "118 of" not in text
+
+
+def test_every_denominator_module_carries_a_row_or_is_excluded() -> None:
     module = _tree_dependent()
     census = module.derive()
     covered = {row.module for row in census.rows}
-    expected = set(census.denominator) - set(census.package_markers)
-    assert expected - covered == set(), "denominator modules with no row"
+    excluded = set(census.facades) | set(census.package_markers)
+    expected = set(census.denominator) - excluded
+    assert expected - covered == set(), "denominator modules with no row and no exclusion"
+    assert covered & excluded == set(), "excluded modules carry rows"
 
 
 def test_the_row_set_equals_the_derived_row_set() -> None:
     module = _tree_dependent()
-    derived = {(row.module, row.name, row.kind) for row in module.derive().rows}
+    derived = {(row.module, row.name, row.kind, row.role) for row in module.derive().rows}
     stated = {
-        (row["legacy module"].strip("` "), row["capability"].strip("` "), row["kind"].strip("` "))
+        (
+            row["legacy module"].strip("` "),
+            row["capability"].strip("` "),
+            row["kind"].strip("` "),
+            row["role"].strip("` "),
+        )
         for row in rows()
     }
     assert stated == derived, "the table and the derivation disagree"
+
+
+def test_every_facade_target_takes_a_row_in_one_hop() -> None:
+    """Each excluded facade resolves to row-carrying modules, with no chains."""
+    module = _tree_dependent()
+    census = module.derive()
+    covered = {row.module for row in census.rows}
+    assert census.facades, "the derivation names no excluded facades"
+    for facade, targets in census.facades.items():
+        assert targets, f"{facade} names no targets"
+        for target in targets:
+            assert target in covered, f"{facade} targets {target}, which carries no row"
+            assert target not in census.facades, f"{facade} targets {target}, a second facade"
+
+
+def test_the_excluded_set_is_the_derived_one() -> None:
+    """The table holds no excluded module; the excluded set comes from the tree."""
+    module = _tree_dependent()
+    census = module.derive()
+    excluded = set(census.facades) | set(census.package_markers)
+    stated_modules = {row["legacy module"].strip("` ") for row in rows()}
+    assert stated_modules & excluded == set(), "excluded modules carry rows"
+    assert set(census.denominator) - stated_modules == excluded
 
 
 def test_the_denominator_excludes_tests() -> None:

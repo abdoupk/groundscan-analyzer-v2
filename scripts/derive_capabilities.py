@@ -54,10 +54,15 @@ NO_OUTPUT = "no-output"
 #: The row-kind token for a capability that emits a declared record.
 OUTPUT = "output"
 
-#: The classifications a `no-output` row can carry. Derived, not assigned.
-FACADE = "facade"
+#: The roles a `no-output` row can carry. Derived, not assigned. A `no-output`
+#: row is a location, not a capability, so every one carries a token.
+CALLABLE_SURFACE = "callable-surface"
 PRIVATE_ONLY = "private-only"
 CONSTANTS_ONLY = "constants-only"
+
+#: Internal marker for the excluded set. A facade takes no row: it declares no
+#: definition of its own and re-exports from a module in the tree.
+FACADE = "facade"
 
 
 @dataclass(frozen=True, slots=True)
@@ -65,15 +70,16 @@ class Row:
     """One capability row of the census.
 
     `name` is the record class for an `output` row and the module path for a
-    `no-output` row, because that is the identity a search would use. `shape`
-    is the derived classification of a `no-output` row and is empty otherwise.
+    `no-output` row, because that is the identity a search would use. `role`
+    is the derived classification of a `no-output` row and is empty otherwise:
+    it is populated exactly when `kind` is `no-output`.
     """
 
     name: str
     kind: str
     module: str
     subtree: str
-    shape: str = ""
+    role: str = ""
 
 
 @dataclass(slots=True)
@@ -84,6 +90,7 @@ class Census:
     rows: tuple[Row, ...] = ()
     package_markers: tuple[str, ...] = ()
     facades: dict[str, list[str]] = field(default_factory=dict)
+    callable_surface: tuple[str, ...] = ()
     private_only: tuple[str, ...] = ()
     constants_only: tuple[str, ...] = ()
     collisions: dict[str, list[str]] = field(default_factory=dict)
@@ -153,17 +160,73 @@ def _sibling_imports(tree: ast.Module, package: str) -> list[str]:
     return sources
 
 
-def classify(tree: ast.Module, package: str) -> str:
-    """The shape of a module that emits no declared record.
+def is_facade(tree: ast.Module, package: str) -> bool:
+    """Whether a module is a re-export surface taking no row.
 
-    Derived rather than assigned, because assigning it by reading is exactly the
-    prose-reading this derivation refuses.
+    A module that declares no definition of its own and re-exports from a
+    module in the tree. Derived rather than assigned, because assigning it by
+    reading is exactly the prose-reading this derivation refuses.
+    """
+    return not _defs(tree, public_only=False) and bool(_sibling_imports(tree, package))
+
+
+def resolve_targets(
+    facade: str, tree: ast.Module, denominator_set: set[str]
+) -> list[str]:
+    """Resolve a facade's re-export imports to denominator modules, one hop.
+
+    Every target takes a row already and there are zero chains, so the
+    coverage check needs one hop rather than a fixpoint. A fixpoint would be
+    machinery for a case the tree does not contain.
+
+    Args:
+        facade: the facade's own module path, e.g. `groundscan/core/artifact.py`.
+        tree: its parsed AST.
+        denominator_set: every denominator module path.
+
+    Returns:
+        The sorted target module paths this facade re-exports.
+    """
+    package = facade.split("/")[0]
+    base = facade.rpartition("/")[0] if "/" in facade else ""
+    if facade.endswith("__init__.py"):
+        base_dir = facade.rpartition("/")[0]
+    else:
+        base_dir = base
+    targets: set[str] = set()
+    for node in tree.body:
+        if not isinstance(node, ast.ImportFrom):
+            continue
+        if node.level:
+            if node.module:
+                dotted = f"{base_dir.replace('/', '.')}.{node.module}" if base_dir else node.module
+            else:
+                dotted = base_dir.replace("/", ".") if base_dir else ""
+        elif node.module and node.module.split(".")[0] == package:
+            dotted = node.module
+        else:
+            continue
+        if not dotted:
+            continue
+        rel = dotted.replace(".", "/") + ".py"
+        if rel in denominator_set:
+            targets.add(rel)
+            continue
+        init_rel = dotted.replace(".", "/") + "/__init__.py"
+        if init_rel in denominator_set:
+            targets.add(init_rel)
+    return sorted(targets)
+
+
+def role_of(tree: ast.Module) -> str:
+    """The role of a module that emits no declared record and is not a facade.
+
+    Derived rather than assigned. Every `no-output` row carries one token:
+    `callable-surface` for the ordinary case, never blank.
     """
     if not _defs(tree, public_only=False):
-        if _sibling_imports(tree, package):
-            return FACADE
         return CONSTANTS_ONLY
-    return PRIVATE_ONLY if not _defs(tree, public_only=True) else ""
+    return PRIVATE_ONLY if not _defs(tree, public_only=True) else CALLABLE_SURFACE
 
 
 def derive(root: Path = LEGACY_ROOT) -> Census:
@@ -188,6 +251,7 @@ def derive(root: Path = LEGACY_ROOT) -> Census:
     rows: list[Row] = []
     markers: list[str] = []
     facades: dict[str, list[str]] = {}
+    callable_surface: list[str] = []
     private_only: list[str] = []
     constants_only: list[str] = []
     for path in paths:
@@ -199,18 +263,21 @@ def derive(root: Path = LEGACY_ROOT) -> Census:
                 Row(name=cls, kind=OUTPUT, module=name, subtree=subtree_of(name)) for cls in emitted
             )
             continue
-        shape = classify(trees[path], package)
-        if shape == CONSTANTS_ONLY and path.name == "__init__.py":
+        if is_facade(trees[path], package):
+            facades[name] = resolve_targets(name, trees[path], set(relative.values()))
+            continue
+        role = role_of(trees[path])
+        if role == CONSTANTS_ONLY and path.name == "__init__.py":
             markers.append(name)
             continue
         rows.append(
-            Row(name=name, kind=NO_OUTPUT, module=name, subtree=subtree_of(name), shape=shape)
+            Row(name=name, kind=NO_OUTPUT, module=name, subtree=subtree_of(name), role=role)
         )
-        if shape == FACADE:
-            facades[name] = _sibling_imports(trees[path], package)
-        elif shape == PRIVATE_ONLY:
+        if role == CALLABLE_SURFACE:
+            callable_surface.append(name)
+        elif role == PRIVATE_ONLY:
             private_only.append(name)
-        elif shape == CONSTANTS_ONLY:
+        elif role == CONSTANTS_ONLY:
             constants_only.append(name)
 
     owners: dict[str, list[str]] = {}
@@ -222,6 +289,7 @@ def derive(root: Path = LEGACY_ROOT) -> Census:
         rows=tuple(sorted(rows, key=lambda row: (row.module, row.name))),
         package_markers=tuple(sorted(markers)),
         facades=facades,
+        callable_surface=tuple(sorted(callable_surface)),
         private_only=tuple(sorted(private_only)),
         constants_only=tuple(sorted(constants_only)),
         collisions={cls: sorted(where) for cls, where in owners.items() if len(where) > 1},
@@ -231,34 +299,37 @@ def derive(root: Path = LEGACY_ROOT) -> Census:
 def render_table(census: Census) -> str:
     """The row table, exactly as the artefact carries it."""
     lines = [
-        "| capability | kind | shape | legacy module | concept | implementation | verdict issue |",
+        "| capability | kind | role | legacy module | concept | implementation | verdict issue |",
         "| --- | --- | --- | --- | --- | --- | --- |",
     ]
     for row in census.rows:
-        shape = f"`{row.shape}`" if row.shape else ""
+        role = f"`{row.role}`" if row.role else ""
         lines.append(
-            f"| `{row.name}` | `{row.kind}` | {shape} | `{row.module}` |  |  | #1 |"
+            f"| `{row.name}` | `{row.kind}` | {role} | `{row.module}` |  |  | #1 |"
         )
     return "\n".join(lines)
 
 
 def report(census: Census) -> dict[str, object]:
-    """The numbers #90 requires a derivation to record."""
+    """The numbers #90 requires a derivation to record, as amended by #92."""
     covered = {row.module for row in census.rows}
+    uncovered = sorted(set(census.denominator) - covered)
     return {
         "denominator_files": len(census.denominator),
         "rows": len(census.rows),
         "rows_by_kind": dict(sorted(Counter(row.kind for row in census.rows).items())),
-        "rows_by_shape": dict(
-            sorted(Counter(row.shape for row in census.rows if row.shape).items())
+        "rows_by_role": dict(
+            sorted(Counter(row.role for row in census.rows if row.role).items())
         ),
         "rows_by_subtree": dict(
             sorted(Counter(row.subtree for row in census.rows).items())
         ),
         "modules_covered": len(covered),
-        "modules_uncovered": sorted(set(census.denominator) - covered),
+        "modules_uncovered": uncovered,
+        "excluded_modules": sorted([*census.facades, *census.package_markers]),
         "package_markers": list(census.package_markers),
         "re_export_facades": census.facades,
+        "callable_surface_modules": list(census.callable_surface),
         "private_only_modules": list(census.private_only),
         "constants_only_modules": list(census.constants_only),
         "record_name_collisions": census.collisions,
