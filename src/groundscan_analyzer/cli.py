@@ -26,13 +26,17 @@ def _run_scan(args: argparse.Namespace) -> int:
 def _run_survey(args: argparse.Namespace) -> int:
     """Analyse a survey of explicitly named scans.
 
+    The named scans are handled in sorted order so the same survey reads
+    the same way regardless of argument or filesystem order. Names are
+    opaque intake tokens: no scan relation is inferred from them.
+
     Args:
         args: The parsed arguments, carrying the named scan exports.
 
     Returns:
         The process exit code: zero on success.
     """
-    print(f"survey: {' '.join(args.scans)}")
+    print(f"survey: {' '.join(sorted(args.scans))}")
     return 0
 
 
