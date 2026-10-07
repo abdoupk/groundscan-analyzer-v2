@@ -29,13 +29,13 @@ Plain `uv run` auto-syncs; `--frozen` is used in this repo's commands to avoid r
 
 Run gates in this order: `ruff format` → `ruff check` → `mypy` → `pytest`.
 
-There is still no CI. There **is** a `.pre-commit-config.yaml`, which runs the cheap gates on every commit: `ruff format` → `ruff check` → `vulture src` → `mypy` → `pytest` → `scripts/check_map.py`. Three more are wired up but off the commit path, on the `manual` stage, because they cost minutes or need the network:
+There is still no CI. There **is** a `.pre-commit-config.yaml`, which runs the cheap gates on every commit: `ruff format` → `ruff check` → `vulture src` → `mypy` → `pytest` → `scripts/check_map.py` → `deptry .`. Two more are wired up but off the commit path, on the `manual` stage, because they cost minutes or need the network:
 
 ```bash
 uv run pre-commit run --hook-stage manual --all-files
 ```
 
-- **`deptry` is deliberately not blocking yet.** It reports DEP002s for dependencies pre-declared ahead of the code that imports them. #83 ruled it joins the commit path the moment those verdicts reach `pyproject.toml` — a gate that arrives already failing gets read as a bad gate and then `--no-verify`'d.
+- **`deptry` is a blocking gate on the commit path.** The #19 verdicts have reached `pyproject.toml`, so a declared-but-unimported package is now a defect. The admitted-but-not-yet-imported set is scoped in `[tool.deptry.per_rule_ignores]`; any other DEP002 fails the commit.
 - **`scripts/check_map.py` calls the network.** Its subject is the relationship between this repository and the tracker, not a file's contents, which is why it is a hook rather than a test.
 
 ## Pytest addopts are hostile to focused runs
@@ -62,11 +62,9 @@ uv run pre-commit run --hook-stage manual --all-files
 
 `disallow_any_explicit = true` is on: writing `Any` anywhere in `src/` is a hard error (verified). Also enabled: `disallow_any_decorated`, `warn_unreachable`, `possibly-undefined`, `unused-awaitable`, `deprecated`, `explicit-override`, `mutable-override`, and `ignore-without-code`. These are relaxed for `tests.*` only — tests may use `Any` in fixtures/decorators.
 
-## Known-failing checks (do not "fix" these *yet*)
+## Dependency gate
 
-`uv run deptry .` currently reports 7 × `DEP002` "defined as a dependency but not used": `natsort`, `numpy`, `orjson`, `pint`, `pydantic`, `scipy`, `typer`. The deps are intentionally pre-declared for unwritten code. Do not delete them from `pyproject.toml` to make deptry green — that inverts the intent.
-
-**This state is now known debt with a decided resolution, not a permanent condition.** [The dependency set, evaluated](https://github.com/abdoupk/groundscan-analyzer-v2/issues/19) ruled on all eight: `natsort`, `orjson`, `pint`, `typer` **out**; `pydantic`, `numpy`, `scipy` **in**; `rich` out as well. So six of the seven findings above are now **known-wrong declarations to be removed**, not speculative ones to be tolerated. `deptry` becomes a **gate** the moment those verdicts reach `pyproject.toml`, because after them a declared-but-unimported dependency is a defect. Until then the finding stands as written.
+`uv run deptry .` is blocking and currently reports zero findings. `pyproject.toml` declares only the decided runtime set (`numpy`, `pydantic`, `scipy`); the [evaluation](https://github.com/abdoupk/groundscan-analyzer-v2/issues/19) ruled `natsort`, `orjson`, `pint`, `typer`, and `rich` **out**. The three admitted-but-not-yet-imported packages are scoped in `[tool.deptry.per_rule_ignores]` by decision, not by drift — any other DEP002 is a defect. Do not add a declared-but-unimported dependency to make a future slice convenient; that inverts the gate.
 
 ## Files to leave alone
 
@@ -77,7 +75,7 @@ uv run pre-commit run --hook-stage manual --all-files
 
 - `src/groundscan_analyzer/` with a checked-in `py.typed`; the package ships typed, so keep everything annotated.
 - Console script is `groundscan-analyzer = "groundscan_analyzer:main"`. `main` must remain re-exported from `__init__.py` — `tests/test_smoke.py::test_main_is_reexported` asserts `groundscan_analyzer.main is groundscan_analyzer.cli.main`. The real implementation belongs in `cli.py`; `__init__.py` stays a thin re-export.
-- CLI output currently goes through `rich.Console` (`cli.py:3`), and `capsys` captures it. **Both halves of that line are now known-wrong**: [#19](https://github.com/abdoupk/groundscan-analyzer-v2/issues/19) ruled `rich` and `typer` **out** — presentational weight is out of scope, and legacy proved stdlib `argparse` + `print()` adequate for six subcommands. Until `cli.py` is rewritten, `rich` is the only declared dependency that is genuinely imported, which is why it is absent from the DEP002 list above.
+- CLI output goes through stdlib `argparse` + `print()` (`cli.py`), and `capsys` captures it. Per [#19](https://github.com/abdoupk/groundscan-analyzer-v2/issues/19), `rich` and `typer` are **out** — presentational weight is out of scope. The print ban is lifted for `cli.py` only (see the `cli.py` per-file-ignore in `pyproject.toml`).
 
 ## Git hygiene
 
