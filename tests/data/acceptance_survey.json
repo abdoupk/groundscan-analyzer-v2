@@ -2,7 +2,7 @@
   "contract_version": 1,
   "convention": "default-numeric-reading-v1",
   "decimal_separator": ".",
-  "quantity_registry_version": 1,
+  "quantity_registry_version": 2,
   "registry_version": 1,
   "scans": [
     {
@@ -128,6 +128,35 @@
             },
             "field_area": 18.0,
             "field_area_withheld": null,
+            "field_position": {
+              "across_lines": {
+                "coordinate": 3.0,
+                "name": "across-lines",
+                "provenance": "engine-constructed",
+                "scale": {
+                  "count": 2,
+                  "count_provenance": "device-index",
+                  "quotient": 3.0,
+                  "span": 3.0,
+                  "span_provenance": "operator-asserted"
+                }
+              },
+              "along_line": {
+                "coordinate": 0.0,
+                "name": "along-line",
+                "provenance": "engine-constructed",
+                "scale": {
+                  "count": 2,
+                  "count_provenance": "device-index",
+                  "quotient": 3.0,
+                  "span": 3.0,
+                  "span_provenance": "operator-asserted"
+                }
+              },
+              "frame": "scan-local",
+              "origin": "operator-marked-starting-point",
+              "origin_limitation": "origin-unverifiable-and-unlocatable"
+            },
             "identity": "positive@15.0#0",
             "lattice_boundary_cells": [
               {
@@ -139,9 +168,25 @@
                 "scan_line": 2
               }
             ],
+            "no_field_position_reason": null,
             "number": 2,
             "padding_adjacent_cells": [],
             "polarity": "positive",
+            "scan_local_position": {
+              "across_lines": {
+                "index": 2,
+                "name": "across-lines",
+                "provenance": "device-index"
+              },
+              "along_line": {
+                "index": 1,
+                "name": "along-line",
+                "provenance": "device-index"
+              },
+              "frame": "scan-local",
+              "origin": "operator-marked-starting-point",
+              "origin_limitation": "origin-unverifiable-and-unlocatable"
+            },
             "solidity": 1.0
           },
           {
@@ -165,6 +210,35 @@
             },
             "field_area": 18.0,
             "field_area_withheld": null,
+            "field_position": {
+              "across_lines": {
+                "coordinate": 0.0,
+                "name": "across-lines",
+                "provenance": "engine-constructed",
+                "scale": {
+                  "count": 2,
+                  "count_provenance": "device-index",
+                  "quotient": 3.0,
+                  "span": 3.0,
+                  "span_provenance": "operator-asserted"
+                }
+              },
+              "along_line": {
+                "coordinate": 0.0,
+                "name": "along-line",
+                "provenance": "engine-constructed",
+                "scale": {
+                  "count": 2,
+                  "count_provenance": "device-index",
+                  "quotient": 3.0,
+                  "span": 3.0,
+                  "span_provenance": "operator-asserted"
+                }
+              },
+              "frame": "scan-local",
+              "origin": "operator-marked-starting-point",
+              "origin_limitation": "origin-unverifiable-and-unlocatable"
+            },
             "identity": "negative@-15.0#0",
             "lattice_boundary_cells": [
               {
@@ -176,9 +250,25 @@
                 "scan_line": 1
               }
             ],
+            "no_field_position_reason": null,
             "number": 1,
             "padding_adjacent_cells": [],
             "polarity": "negative",
+            "scan_local_position": {
+              "across_lines": {
+                "index": 1,
+                "name": "across-lines",
+                "provenance": "device-index"
+              },
+              "along_line": {
+                "index": 1,
+                "name": "along-line",
+                "provenance": "device-index"
+              },
+              "frame": "scan-local",
+              "origin": "operator-marked-starting-point",
+              "origin_limitation": "origin-unverifiable-and-unlocatable"
+            },
             "solidity": 1.0
           }
         ],
@@ -208,6 +298,7 @@
           2
         ]
       },
+      "line_order": "absent-from-export",
       "longitude_presence": "present-but-empty",
       "metric_check": {
         "checked": true,

@@ -23,7 +23,7 @@ from typing import TYPE_CHECKING, NamedTuple
 if TYPE_CHECKING:
     from typing import Final
 
-QUANTITY_REGISTRY_VERSION: Final[int] = 1
+QUANTITY_REGISTRY_VERSION: Final[int] = 2
 
 
 class QuantityEntry(NamedTuple):
@@ -74,10 +74,10 @@ QUANTITIES: Final[tuple[QuantityEntry, ...]] = (
         name="field-area",
         definition="Occupied measured cells times the along-line pitch "
         "times the across-line pitch.",
-        derivation="Each pitch its declared span over its observed count "
-        "less one, multiplied with the detection's own cells, never the "
-        "hull, under a bitwise homogeneity gate, with no tolerance "
-        "anywhere.",
+        derivation="Each pitch read by citation from the field position's "
+        "own scales with the homogeneity gate on the pair, multiplied "
+        "with the detection's own cells, never the hull, with no "
+        "tolerance anywhere.",
         unit="square-declared-unit",
         population="detection cells over scan measured cells",
         lower=None,
@@ -165,5 +165,33 @@ QUANTITIES: Final[tuple[QuantityEntry, ...]] = (
         upper=None,
         upper_inclusive=True,
         owner="groundscan_analyzer.hierarchy",
+    ),
+    QuantityEntry(
+        name="scan-local-position",
+        definition="Exact integer impulse indices within the contributing "
+        "scan's own lattice and frame.",
+        derivation="The detection's lattice-first cell carried verbatim, "
+        "never re-based, with device-reported indices.",
+        unit="index",
+        population="detection representative cell",
+        lower=None,
+        lower_inclusive=True,
+        upper=None,
+        upper_inclusive=True,
+        owner="groundscan_analyzer.reader",
+    ),
+    QuantityEntry(
+        name="field-position",
+        definition="Index minus one times span over count minus one per axis, in declared units.",
+        derivation="One pitch_span per axis with the series origin at "
+        "index one, withheld with cause where no extent was declared or "
+        "no pitch is definable.",
+        unit="declared-unit",
+        population="detection representative cell",
+        lower=None,
+        lower_inclusive=True,
+        upper=None,
+        upper_inclusive=True,
+        owner="groundscan_analyzer.positions",
     ),
 )

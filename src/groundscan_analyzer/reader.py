@@ -21,6 +21,7 @@ from groundscan_analyzer import (
     document,
     hierarchy,
     input_contract,
+    positions,
 )
 
 if TYPE_CHECKING:
@@ -682,9 +683,10 @@ def _check_metrics(rows: list[_Row], extent: document.Extent) -> document.Metric
 
     Each axis is checked independently where its span is declared and its
     observed count defines a series, so one absent echo never silences the
-    other. The expected series is ``(index - minimum) * span / (count - 1)``
-    per axis, compared at half a unit of the coarsest printed place. The
-    echo is never read as an input: substituting it moves only this check.
+    other. The expected series is the engine's own ``(index - 1) * span /
+    (count - 1)`` per axis, compared at half a unit of the coarsest
+    printed place. The echo is never read as an input: substituting it
+    moves only this check.
 
     Args:
         rows: The accepted rows in file order.
@@ -746,6 +748,9 @@ def _axis_mismatches(
 ) -> list[document.MetricMismatch]:
     """List one axis's echo values disagreeing with its derived series.
 
+    The series is the engine's own, with position zero at index one, so
+    no observed minimum is ever subtracted away.
+
     Args:
         rows: The accepted rows in file order.
         axis: The lattice axis under comparison.
@@ -759,14 +764,12 @@ def _axis_mismatches(
     found: list[document.MetricMismatch] = []
     if span is None or len(indices) < MIN_SERIES_COUNT:
         return found
-    step = span / (len(indices) - 1)
-    base = indices[0]
     for row in rows:
         observed = row.metric_x if axis == "impulse" else row.metric_y
         position = row.impulse if axis == "impulse" else row.scan_line
         if observed is None:
             continue
-        expected = (position - base) * step
+        expected = positions.field_coordinate(position, span, len(indices))
         if abs(observed - expected) > tolerance:
             found.append(
                 document.MetricMismatch(
@@ -927,6 +930,62 @@ def _to_cells(coords: Sequence[tuple[int, int]]) -> list[document.DetectionCell]
     ]
 
 
+def _field_position(
+    representative: tuple[int, int], context: _DetectionContext
+) -> tuple[document.FieldPosition | None, document.WithheldReason | None]:
+    """Express one detection in the operator-declared extent, or withhold.
+
+    Each axis is index-minus-one times its own pitch, inhomogeneity
+    aside: the two axes stay meaningful alone, and only their product
+    needs one unit.
+
+    Args:
+        representative: The detection's lattice-first coordinates.
+        context: The scan's depths, geometry and boundary facts.
+
+    Returns:
+        The field position with no reason, or no position with the
+        named cause.
+    """
+    if context.field_length is None or context.field_width is None:
+        return None, "requires-declared-extent"
+    if (
+        context.impulse_count < positions.MIN_PITCH_COUNT
+        or context.scan_line_count < positions.MIN_PITCH_COUNT
+    ):
+        return None, "requires-homogeneous-axes"
+    impulse, scan_line = representative
+    pitch_x = positions.pitch_span(context.field_length, context.impulse_count)
+    pitch_y = positions.pitch_span(context.field_width, context.scan_line_count)
+    return document.FieldPosition(
+        frame="scan-local",
+        origin="operator-marked-starting-point",
+        origin_limitation="origin-unverifiable-and-unlocatable",
+        along_line=document.FieldAxis(
+            name="along-line",
+            coordinate=positions.field_coordinate(
+                impulse, context.field_length, context.impulse_count
+            ),
+            scale=document.Scale(
+                span=context.field_length,
+                count=context.impulse_count,
+                quotient=pitch_x,
+            ),
+        ),
+        across_lines=document.FieldAxis(
+            name="across-lines",
+            coordinate=positions.field_coordinate(
+                scan_line, context.field_width, context.scan_line_count
+            ),
+            scale=document.Scale(
+                span=context.field_width,
+                count=context.scan_line_count,
+                quotient=pitch_y,
+            ),
+        ),
+    ), None
+
+
 def _read_detection(
     item: hierarchy.DetectionData, context: _DetectionContext
 ) -> document.Detection:
@@ -937,17 +996,34 @@ def _read_detection(
         context: The scan's depths, geometry and boundary facts.
 
     Returns:
-        The detection carrying solidity, compactness, field area, depth
-        interval, boundary facts and size in cells.
+        The detection carrying positions, solidity, compactness, field
+        area, depth interval, boundary facts and size in cells.
+
+    Raises:
+        ValueError: When a withheld position names no cause, which the
+            pairing contract forbids.
     """
     coords = list(item.cells)
-    area = descriptors.field_area_result(
-        len(coords),
-        context.field_length,
-        context.field_width,
-        context.impulse_count,
-        context.scan_line_count,
+    representative = coords[0]
+    scan_local = document.ScanLocalPosition(
+        frame="scan-local",
+        origin="operator-marked-starting-point",
+        origin_limitation="origin-unverifiable-and-unlocatable",
+        along_line=document.ScanLocalAxis(name="along-line", index=representative[0]),
+        across_lines=document.ScanLocalAxis(name="across-lines", index=representative[1]),
     )
+    field_position, no_reason = _field_position(representative, context)
+    if field_position is None:
+        if no_reason is None:
+            msg = "a withheld position names its cause"
+            raise ValueError(msg)
+        area = descriptors.AreaResult(None, no_reason)
+    else:
+        area = descriptors.field_area(
+            len(coords),
+            field_position.along_line.scale.quotient,
+            field_position.across_lines.scale.quotient,
+        )
     interval = descriptors.depth_interval(_sample_depths(context.depths, coords))
     boundary, adjacent = descriptors.split_boundary(coords, context.bounds, context.unmeasured)
     return document.Detection(
@@ -957,6 +1033,9 @@ def _read_detection(
         birth_level=item.birth,
         cells=_to_cells(coords),
         cell_count=len(coords),
+        scan_local_position=scan_local,
+        field_position=field_position,
+        no_field_position_reason=no_reason,
         solidity=descriptors.solidity(coords),
         compactness=descriptors.compactness(coords),
         field_area=area.value,

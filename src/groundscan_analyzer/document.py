@@ -41,6 +41,8 @@ def _reject_non_finite[T](value: T) -> T:
 FiniteFloat = Annotated[float, BeforeValidator(_reject_non_finite)]
 FiniteOptionalFloat = Annotated[float | None, BeforeValidator(_reject_non_finite)]
 
+WithheldReason = Literal["requires-declared-extent", "requires-homogeneous-axes"]
+
 RefusalReason = Literal[
     "unknown-column-name",
     "duplicate-normalised-name",
@@ -120,6 +122,81 @@ class DetectionCell(BaseModel):
     scan_line: int = Field(ge=0)
 
 
+class Scale(BaseModel):
+    """One field axis pitch with both its inputs named and provenanced.
+
+    The declared span as an operator assertion with the observed count as
+    a device index, and the scale their quotient, which tells a reader
+    which input to distrust. The scale travels inside the position and
+    nowhere else: a bare figure in units with no frame attached is
+    impossible in the type.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    span: FiniteFloat
+    span_provenance: Literal["operator-asserted"] = "operator-asserted"
+    count: int = Field(ge=1)
+    count_provenance: Literal["device-index"] = "device-index"
+    quotient: FiniteFloat
+
+
+class ScanLocalAxis(BaseModel):
+    """One canonical axis: a device-reported index with its provenance."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: Literal["along-line", "across-lines"]
+    index: int = Field(ge=0)
+    provenance: Literal["device-index"] = "device-index"
+
+
+class ScanLocalPosition(BaseModel):
+    """The canonical position: exact integer indices in the scan's frame.
+
+    Always available and never replaced by a derived expression. The
+    frame is part of the identity, and the origin is the operator's
+    marked starting point with its limitation carried on every position.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    frame: Literal["scan-local"]
+    origin: Literal["operator-marked-starting-point"]
+    origin_limitation: Literal["origin-unverifiable-and-unlocatable"]
+    along_line: ScanLocalAxis
+    across_lines: ScanLocalAxis
+
+
+class FieldAxis(BaseModel):
+    """One derived axis: an engine-constructed coordinate with its scale."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: Literal["along-line", "across-lines"]
+    coordinate: FiniteFloat
+    scale: Scale
+    provenance: Literal["engine-constructed"] = "engine-constructed"
+
+
+class FieldPosition(BaseModel):
+    """A position in the operator-declared extent, in their own units.
+
+    Derived and emitted alongside the scan-local position, never
+    replacing it, and only where an extent was declared. True only to
+    the extent the declaration was true. Never converted: a declaration
+    in feet yields feet.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    frame: Literal["scan-local"]
+    origin: Literal["operator-marked-starting-point"]
+    origin_limitation: Literal["origin-unverifiable-and-unlocatable"]
+    along_line: FieldAxis
+    across_lines: FieldAxis
+
+
 class DepthInterval(BaseModel):
     """A device-reported depth interval spanning the covered samples.
 
@@ -160,12 +237,13 @@ class Detection(BaseModel):
     birth_level: FiniteFloat
     cells: list[DetectionCell]
     cell_count: int = Field(ge=1)
+    scan_local_position: ScanLocalPosition
+    field_position: FieldPosition | None
+    no_field_position_reason: WithheldReason | None = None
     solidity: FiniteFloat
     compactness: FiniteFloat
     field_area: FiniteOptionalFloat = None
-    field_area_withheld: Literal["requires-declared-extent", "requires-homogeneous-axes"] | None = (
-        None
-    )
+    field_area_withheld: WithheldReason | None = None
     depth: DepthInterval | None = None
     lattice_boundary_cells: list[DetectionCell] = Field(default_factory=list)
     padding_adjacent_cells: list[DetectionCell] = Field(default_factory=list)
@@ -279,7 +357,11 @@ class RowIssue(BaseModel):
 
 
 class ScanRead(BaseModel):
-    """A scan the contract accepted, carrying its lattice and responses."""
+    """A scan the contract accepted, carrying its lattice and responses.
+
+    Line order travels exactly as exported, never corrected, with its
+    absence from every export version stated rather than inferred.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
@@ -294,6 +376,7 @@ class ScanRead(BaseModel):
     extent: Extent
     latitude_presence: PresenceState
     longitude_presence: PresenceState
+    line_order: Literal["absent-from-export"] = "absent-from-export"
     metric_check: MetricCheck
     discrepancies: list[Discrepancy]
 
@@ -317,7 +400,7 @@ class Document(BaseModel):
 
     contract_version: Literal[1] = CONTRACT_VERSION  # type: ignore[assignment]
     registry_version: Literal[1] = REGISTRY_VERSION  # type: ignore[assignment]
-    quantity_registry_version: Literal[1] = quantity_registry.QUANTITY_REGISTRY_VERSION  # type: ignore[assignment]
+    quantity_registry_version: Literal[2] = quantity_registry.QUANTITY_REGISTRY_VERSION  # type: ignore[assignment]
     decimal_separator: Literal["."] = dialect.DECIMAL_SEPARATOR  # type: ignore[assignment]
     convention: Literal["default-numeric-reading-v1"] = dialect.CONVENTION  # type: ignore[assignment]
     scans: list[Annotated[ScanRead | ScanRefused, Field(discriminator="status")]]

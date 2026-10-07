@@ -20,15 +20,15 @@ two distinct facts: lattice-boundary cells and padding-adjacent cells.
 from __future__ import annotations
 
 import math
-import struct
 from typing import TYPE_CHECKING, NamedTuple
+
+from groundscan_analyzer import positions
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
     from typing import Final, Literal
 
 _MIN_CHAIN_POINTS: Final[int] = 2
-_MIN_PITCH_COUNT: Final[int] = 2
 
 
 class AreaResult(NamedTuple):
@@ -185,63 +185,27 @@ def compactness(cells: Sequence[tuple[int, int]]) -> float:
     return 4 * math.pi * area / (perimeter * perimeter)
 
 
-def _bits(value: float) -> int:
-    """Expose the binary64 bits of one pitch for exact comparison.
-
-    A tolerance here would be a threshold wearing a gate's clothes: two
-    pitches either are one unit or are not, so homogeneity is decided by
-    bitwise identity, never by closeness.
-
-    Args:
-        value: The pitch to inspect.
-
-    Returns:
-        The little-endian bit pattern as an integer.
-    """
-    packed = struct.pack("<d", value)
-    part: int = struct.unpack("<Q", packed)[0]
-    return part
-
-
-def field_area_result(
-    cell_count: int,
-    field_length: float | None,
-    field_width: float | None,
-    impulse_count: int,
-    scan_line_count: int,
-) -> AreaResult:
-    """Reduce occupied cells and declared geometry to a field area.
+def field_area(cell_count: int, pitch_x: float, pitch_y: float) -> AreaResult:
+    """Reduce occupied cells and cited pitches to a field area.
 
     The area is the detection's own occupied cells times the along-line
-    pitch times the across-line pitch, each pitch its declared span over
-    its observed count less one. The hull is never read: an anomaly is a
-    connected set of residuals, and the hull is an artefact introduced
-    only to make solidity computable. Withheld in exactly two named
-    ways: no declared extent, or axes that are not one unit, including
-    an axis with a single observed index, which defines no pitch at all.
-    The pitches are read here from the declared spans over the observed
-    counts, which keeps every figure recomputable from the record; the
-    citation from the field position lands with the positions themselves.
+    pitch times the across-line pitch, read by citation from the field
+    position's own scales rather than restated from the spans. The hull
+    is never read: an anomaly is a connected set of residuals, and the
+    hull is an artefact introduced only to make solidity computable.
+    Withheld with cause where the axes are not one unit; the
+    no-declared-extent cause travels with the absent position itself,
+    so this function only ever sees definable pitches.
 
     Args:
         cell_count: The detection's occupied measured cells.
-        field_length: The declared along-line span, absent where never
-            declared.
-        field_width: The declared across-lines span, absent where never
-            declared.
-        impulse_count: The observed impulse indices along one line.
-        scan_line_count: The observed scan-line indices.
+        pitch_x: The along-line pitch from the field position's scale.
+        pitch_y: The across-lines pitch from the field position's scale.
 
     Returns:
         The area with no withheld reason, or no area with its cause.
     """
-    if field_length is None or field_width is None:
-        return AreaResult(None, "requires-declared-extent")
-    if impulse_count < _MIN_PITCH_COUNT or scan_line_count < _MIN_PITCH_COUNT:
-        return AreaResult(None, "requires-homogeneous-axes")
-    pitch_x = field_length / (impulse_count - 1)
-    pitch_y = field_width / (scan_line_count - 1)
-    if _bits(pitch_x) != _bits(pitch_y):
+    if not positions.same_pitch(pitch_x, pitch_y):
         return AreaResult(None, "requires-homogeneous-axes")
     return AreaResult(cell_count * pitch_x * pitch_y, None)
 

@@ -31,6 +31,9 @@ def field_kinds() -> dict[FieldRef, str | None]:
         ("Detection", "birth_level"): None,
         ("Detection", "cells"): None,
         ("Detection", "cell_count"): "component-size-in-cells",
+        ("Detection", "scan_local_position"): "scan-local-position",
+        ("Detection", "field_position"): "field-position",
+        ("Detection", "no_field_position_reason"): "field-position",
         ("Detection", "solidity"): "solidity",
         ("Detection", "compactness"): "compactness",
         ("Detection", "field_area"): "field-area",
@@ -61,6 +64,28 @@ def field_kinds() -> dict[FieldRef, str | None]:
         ("ComponentCount", "count"): "component-count",
         ("ComponentCount", "denominator"): "component-count",
         ("ComponentCount", "connectivity"): None,
+        ("Scale", "span"): "field-position",
+        ("Scale", "span_provenance"): "field-position",
+        ("Scale", "count"): "field-position",
+        ("Scale", "count_provenance"): "field-position",
+        ("Scale", "quotient"): "field-position",
+        ("ScanLocalAxis", "name"): "scan-local-position",
+        ("ScanLocalAxis", "index"): "scan-local-position",
+        ("ScanLocalAxis", "provenance"): "scan-local-position",
+        ("ScanLocalPosition", "frame"): "scan-local-position",
+        ("ScanLocalPosition", "origin"): "scan-local-position",
+        ("ScanLocalPosition", "origin_limitation"): "scan-local-position",
+        ("ScanLocalPosition", "along_line"): "scan-local-position",
+        ("ScanLocalPosition", "across_lines"): "scan-local-position",
+        ("FieldAxis", "name"): "field-position",
+        ("FieldAxis", "coordinate"): "field-position",
+        ("FieldAxis", "scale"): "field-position",
+        ("FieldAxis", "provenance"): "field-position",
+        ("FieldPosition", "frame"): "field-position",
+        ("FieldPosition", "origin"): "field-position",
+        ("FieldPosition", "origin_limitation"): "field-position",
+        ("FieldPosition", "along_line"): "field-position",
+        ("FieldPosition", "across_lines"): "field-position",
     }
     models: dict[str, type[BaseModel]] = {
         "Detection": document.Detection,
@@ -68,6 +93,11 @@ def field_kinds() -> dict[FieldRef, str | None]:
         "DepthInterval": document.DepthInterval,
         "DetectionCount": document.DetectionCount,
         "ComponentCount": document.ComponentCount,
+        "Scale": document.Scale,
+        "ScanLocalAxis": document.ScanLocalAxis,
+        "ScanLocalPosition": document.ScanLocalPosition,
+        "FieldAxis": document.FieldAxis,
+        "FieldPosition": document.FieldPosition,
     }
     seen = {(name, field) for name, model in models.items() for field in model.model_fields}
     assert seen == set(kinds), f"unclassified record fields: {seen ^ set(kinds)}"
@@ -76,10 +106,10 @@ def field_kinds() -> dict[FieldRef, str | None]:
 
 def test_registry_is_versioned_and_closed() -> None:
     """One version, unique names, unique owners per quantity."""
-    assert quantity_registry.QUANTITY_REGISTRY_VERSION == 1
+    assert quantity_registry.QUANTITY_REGISTRY_VERSION == 2
     names = [entry.name for entry in quantity_registry.QUANTITIES]
     assert len(names) == len(set(names))
-    assert len(names) == 9
+    assert len(names) == 11
 
 
 def test_every_quantity_has_exactly_one_entry() -> None:
