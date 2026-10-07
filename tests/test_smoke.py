@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import re
 import sys
 from typing import TYPE_CHECKING
@@ -81,6 +82,23 @@ def test_bare_entry_point_reads_the_process_arguments(
     monkeypatch.setattr(sys, "argv", ["groundscan-analyzer"])
     assert main() == 2
     assert "survey" in capsys.readouterr().out
+
+
+def test_missing_dispatch_prints_usage_without_traceback(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A dispatch-less parse prints usage instead of failing."""
+
+    def _parse_without_dispatch(
+        _self: argparse.ArgumentParser, *_args: object, **_kwargs: object
+    ) -> argparse.Namespace:
+        return argparse.Namespace()
+
+    monkeypatch.setattr(argparse.ArgumentParser, "parse_args", _parse_without_dispatch)
+    assert main(["scan", "first-export"]) == 2
+    out = capsys.readouterr().out
+    assert "scan" in out
+    assert "survey" in out
 
 
 def test_unknown_subcommand_exits_nonzero_with_usage_on_stderr(

@@ -50,7 +50,7 @@ def _build_parser() -> argparse.ArgumentParser:
         prog="groundscan-analyzer",
         description="Read a survey of scan exports and emit detections.",
     )
-    subcommands = parser.add_subparsers(title="subcommands", dest="command")
+    subcommands = parser.add_subparsers(title="subcommands", dest="command", required=True)
     scan = subcommands.add_parser("scan", help="Analyse one scan from its named export.")
     scan.add_argument("scan", metavar="SCAN", help="Path of the scan export to analyse.")
     scan.set_defaults(func=_run_scan)
@@ -65,6 +65,9 @@ def _build_parser() -> argparse.ArgumentParser:
 def main(argv: Sequence[str] | None = None) -> int:
     """Run the groundscan-analyzer command-line interface.
 
+    Bare invocation prints usage on stdout with exit 2; parse failures print
+    usage on stderr with exit 2.
+
     Args:
         argv: The command-line arguments without the program name. The process
             arguments are read when omitted.
@@ -78,5 +81,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         _build_parser().print_help()
         return 2
     args = _build_parser().parse_args(argv)
-    handler: Callable[[argparse.Namespace], int] = args.func
+    handler: Callable[[argparse.Namespace], int] | None = getattr(args, "func", None)
+    if handler is None:
+        _build_parser().print_help()
+        return 2
     return handler(args)
