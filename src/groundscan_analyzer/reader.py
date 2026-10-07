@@ -14,7 +14,7 @@ from collections import Counter
 import re
 from typing import TYPE_CHECKING, Literal, NamedTuple
 
-from groundscan_analyzer import dialect, document, input_contract
+from groundscan_analyzer import background, dialect, document, input_contract
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -830,6 +830,43 @@ def _presence(column: int | None, *, has_value: bool) -> document.PresenceState:
     return "present-but-empty"
 
 
+def _residual_map(rows: list[_Row]) -> dict[tuple[int, int], float]:
+    """Reduce the measured responses to residuals under the pinned background.
+
+    Args:
+        rows: The accepted rows in file order.
+
+    Returns:
+        The residual per measured coordinate, in original units.
+    """
+    measured: dict[tuple[int, int], float] = {}
+    for row in rows:
+        if row.response is not None:
+            measured[row.impulse, row.scan_line] = row.response
+    return background.residuals(measured)
+
+
+def _read_cells(rows: list[_Row]) -> list[document.Cell]:
+    """Build the cell records with residuals in file order.
+
+    Args:
+        rows: The accepted rows in file order.
+
+    Returns:
+        One cell per row, carrying a null residual where padding.
+    """
+    remaining = _residual_map(rows)
+    return [
+        document.Cell(
+            impulse=row.impulse,
+            scan_line=row.scan_line,
+            response=row.response,
+            residual=None if row.response is None else remaining[row.impulse, row.scan_line],
+        )
+        for row in rows
+    ]
+
+
 def _read_scan_inner(text: str, position: int) -> document.ScanRead | document.ScanRefused:
     """Read one decoded export through both registries to its record.
 
@@ -871,10 +908,8 @@ def _read_scan_inner(text: str, position: int) -> document.ScanRead | document.S
         sections=sorted(entry.name for entry in _present_sections(blocks)),
         columns=sorted(entry.name for entry in entries),
         lattice=document.Lattice(impulses=impulses, scan_lines=scan_lines),
-        cells=[
-            document.Cell(impulse=row.impulse, scan_line=row.scan_line, response=row.response)
-            for row in table.rows
-        ],
+        cells=_read_cells(table.rows),
+        background_model=document.BackgroundModel(),
         extent=extent,
         latitude_presence=_presence(layout.latitude, has_value=table.latitude_value),
         longitude_presence=_presence(layout.longitude, has_value=table.longitude_value),

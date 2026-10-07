@@ -16,7 +16,7 @@ from typing import Annotated, Literal, NoReturn
 
 from pydantic import BaseModel, BeforeValidator, ConfigDict, Field
 
-from groundscan_analyzer import dialect
+from groundscan_analyzer import background, dialect
 from groundscan_analyzer.property_registry import CONTRACT_VERSION, REGISTRY_VERSION
 
 
@@ -68,13 +68,38 @@ class Lattice(BaseModel):
 
 
 class Cell(BaseModel):
-    """One observed coordinate with its response, null where padding."""
+    """One observed coordinate with its response and residual, null where padding."""
 
     model_config = ConfigDict(extra="forbid")
 
     impulse: int = Field(ge=0)
     scan_line: int = Field(ge=0)
     response: FiniteOptionalFloat = None
+    residual: FiniteOptionalFloat = None
+
+
+class BackgroundModel(BaseModel):
+    """Processing metadata describing the background computation.
+
+    This is scan context, not configuration: the convention is pinned and
+    versioned, and the engine exposes no knob for it. Windows, support rule
+    and combination describe the computation and never a claim about the
+    ground. The three windows are odd-sized on purpose, and the ladder count
+    of three is odd and load-bearing: an even ladder's median would average
+    two order statistics rather than returning one. No trend term is removed,
+    recorded here as none rather than left as an absence, since the largest
+    window already is the low-frequency removal and a fitted trend would be
+    a geometric ground claim that double-counts. Support is derived per scale
+    and never stored, so no per-scale set travels.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    convention: Literal["background-model-v1"] = background.CONVENTION  # type: ignore[assignment]
+    windows: tuple[Literal[3], Literal[5], Literal[9]] = background.WINDOWS  # type: ignore[assignment]
+    support: Literal["measured-cells-only"] = background.SUPPORT_RULE  # type: ignore[assignment]
+    combination: Literal["median"] = background.COMBINATION  # type: ignore[assignment]
+    trend: Literal["none"] = background.TREND  # type: ignore[assignment]
 
 
 class Extent(BaseModel):
@@ -137,6 +162,7 @@ class ScanRead(BaseModel):
     columns: list[str]
     lattice: Lattice
     cells: list[Cell]
+    background_model: BackgroundModel
     extent: Extent
     latitude_presence: PresenceState
     longitude_presence: PresenceState

@@ -5,24 +5,39 @@
   "registry_version": 1,
   "scans": [
     {
+      "background_model": {
+        "combination": "median",
+        "convention": "background-model-v1",
+        "support": "measured-cells-only",
+        "trend": "none",
+        "windows": [
+          3,
+          5,
+          9
+        ]
+      },
       "cells": [
         {
           "impulse": 1,
+          "residual": -15.0,
           "response": 10.0,
           "scan_line": 1
         },
         {
           "impulse": 2,
+          "residual": -5.0,
           "response": 20.0,
           "scan_line": 1
         },
         {
           "impulse": 1,
+          "residual": 5.0,
           "response": 30.0,
           "scan_line": 2
         },
         {
           "impulse": 2,
+          "residual": 15.0,
           "response": 40.0,
           "scan_line": 2
         }
