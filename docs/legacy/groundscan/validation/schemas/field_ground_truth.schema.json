@@ -1,0 +1,110 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": [
+    "independent_field_ground_truth",
+    "cases"
+  ],
+  "properties": {
+    "independent_field_ground_truth": {
+      "const": true
+    },
+    "dataset_id": {
+      "type": "string"
+    },
+    "notes": {
+      "type": "string"
+    },
+    "cases": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "case_id",
+          "scan_path"
+        ],
+        "properties": {
+          "case_id": {
+            "type": "string"
+          },
+          "scan_path": {
+            "type": "string"
+          },
+          "verification_method": {
+            "type": "string"
+          },
+          "target_present": {
+            "type": "boolean"
+          },
+          "expected_patterns": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "x": {
+            "type": "number"
+          },
+          "y": {
+            "type": "number"
+          },
+          "tolerance_m": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "depth_m": {
+            "type": "number"
+          },
+          "depth_tolerance_m": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "acquisition": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "required": [
+                "x"
+              ]
+            },
+            "then": {
+              "required": [
+                "y"
+              ]
+            }
+          },
+          {
+            "if": {
+              "required": [
+                "y"
+              ]
+            },
+            "then": {
+              "required": [
+                "x"
+              ]
+            }
+          },
+          {
+            "if": {
+              "required": [
+                "depth_m"
+              ]
+            },
+            "then": {
+              "required": [
+                "depth_tolerance_m"
+              ]
+            }
+          }
+        ]
+      }
+    }
+  },
+  "additionalProperties": true,
+  "$comment": "Independent field truth only; do not use synthetic or vendor-reference examples as this manifest."
+}

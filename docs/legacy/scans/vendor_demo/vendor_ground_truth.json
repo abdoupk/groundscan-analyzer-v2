@@ -1,0 +1,199 @@
+{
+  "benchmark": "okm_vendor_documented_reference",
+  "independent_field_ground_truth": false,
+  "provenance": "OKM vendor educational sample metadata/notes",
+  "cases": [
+    {
+      "path": "train/Iron Treasure with Silver and Gold Coins.csv",
+      "split": "train",
+      "title": "Buried metal target / iron box",
+      "target_present": true,
+      "required_any_patterns": [
+        "dipolar-response",
+        "metallic-like",
+        "linear-metal-compatible"
+      ],
+      "min_pattern_counts": {},
+      "required_response_families": [
+        "dipolar-response"
+      ],
+      "min_boundary_contact": null,
+      "max_candidates": null,
+      "min_candidates": 0,
+      "required_hypothesis_support": [
+        [
+          "metallic-like",
+          0.5
+        ]
+      ],
+      "paired_with": null,
+      "pair_expectation": null,
+      "provenance": "vendor-metadata-notes"
+    },
+    {
+      "path": "train/Pipeline.csv",
+      "split": "train",
+      "title": "Metallic pipeline",
+      "target_present": true,
+      "required_any_patterns": [
+        "linear-metal-compatible"
+      ],
+      "min_pattern_counts": {
+        "linear-metal-compatible": 1
+      },
+      "required_response_families": [
+        "linear-metal-response"
+      ],
+      "min_boundary_contact": null,
+      "max_candidates": null,
+      "min_candidates": 0,
+      "required_hypothesis_support": [],
+      "paired_with": null,
+      "pair_expectation": null,
+      "provenance": "vendor-metadata-notes"
+    },
+    {
+      "path": "train/Royal Tomb.csv",
+      "split": "train",
+      "title": "Tomb chamber / entrance structure",
+      "target_present": true,
+      "required_any_patterns": [
+        "cavity-like",
+        "tunnel-like"
+      ],
+      "min_pattern_counts": {},
+      "required_response_families": [],
+      "min_boundary_contact": null,
+      "max_candidates": null,
+      "min_candidates": 0,
+      "required_hypothesis_support": [],
+      "paired_with": null,
+      "pair_expectation": null,
+      "provenance": "vendor-metadata-notes"
+    },
+    {
+      "path": "train/Tunnel - Original Scan.csv",
+      "split": "train",
+      "title": "Tunnel / treasure-chamber access",
+      "target_present": true,
+      "required_any_patterns": [
+        "tunnel-like"
+      ],
+      "min_pattern_counts": {
+        "tunnel-like": 1
+      },
+      "required_response_families": [
+        "linear-response"
+      ],
+      "min_boundary_contact": null,
+      "max_candidates": null,
+      "min_candidates": 0,
+      "required_hypothesis_support": [],
+      "paired_with": "validation/Tunnel - Control Scan.csv",
+      "pair_expectation": "shared tunnel-like pattern family",
+      "provenance": "vendor-metadata-notes"
+    },
+    {
+      "path": "validation/Anomaly at the Edge.csv",
+      "split": "holdout",
+      "title": "Incomplete boundary anomaly",
+      "target_present": true,
+      "required_any_patterns": [
+        "boundary-effect-like"
+      ],
+      "min_pattern_counts": {},
+      "required_response_families": [],
+      "min_boundary_contact": 0.8,
+      "max_candidates": null,
+      "min_candidates": 0,
+      "required_hypothesis_support": [],
+      "paired_with": null,
+      "pair_expectation": null,
+      "provenance": "vendor-metadata-notes"
+    },
+    {
+      "path": "validation/Error Signal.csv",
+      "split": "holdout",
+      "title": "Instrument error signal / no object",
+      "target_present": false,
+      "required_any_patterns": [],
+      "min_pattern_counts": {},
+      "required_response_families": [],
+      "min_boundary_contact": null,
+      "max_candidates": 0,
+      "min_candidates": 0,
+      "required_hypothesis_support": [],
+      "paired_with": null,
+      "pair_expectation": null,
+      "provenance": "vendor-metadata-notes"
+    },
+    {
+      "path": "validation/Gallery and Tunnel.csv",
+      "split": "holdout",
+      "title": "Gallery and multiple tunnel structures",
+      "target_present": true,
+      "required_any_patterns": [
+        "tunnel-like"
+      ],
+      "min_pattern_counts": {
+        "tunnel-like": 2
+      },
+      "required_response_families": [
+        "linear-response"
+      ],
+      "min_boundary_contact": null,
+      "max_candidates": null,
+      "min_candidates": 0,
+      "required_hypothesis_support": [],
+      "paired_with": null,
+      "pair_expectation": null,
+      "provenance": "vendor-metadata-notes"
+    },
+    {
+      "path": "validation/Iron Box.csv",
+      "split": "holdout",
+      "title": "Buried iron box",
+      "target_present": true,
+      "required_any_patterns": [
+        "dipolar-response",
+        "metallic-like"
+      ],
+      "min_pattern_counts": {},
+      "required_response_families": [
+        "dipolar-response"
+      ],
+      "min_boundary_contact": null,
+      "max_candidates": null,
+      "min_candidates": 0,
+      "required_hypothesis_support": [
+        [
+          "metallic-like",
+          0.45
+        ]
+      ],
+      "paired_with": null,
+      "pair_expectation": null,
+      "provenance": "vendor-metadata-notes"
+    },
+    {
+      "path": "validation/Tunnel - Control Scan.csv",
+      "split": "holdout",
+      "title": "Control scan for potential tunnel",
+      "target_present": true,
+      "required_any_patterns": [
+        "tunnel-like"
+      ],
+      "min_pattern_counts": {
+        "tunnel-like": 1
+      },
+      "required_response_families": [],
+      "min_boundary_contact": null,
+      "max_candidates": null,
+      "min_candidates": 0,
+      "required_hypothesis_support": [],
+      "paired_with": "train/Tunnel - Original Scan.csv",
+      "pair_expectation": "shared tunnel-like pattern family",
+      "provenance": "vendor-metadata-notes"
+    }
+  ]
+}

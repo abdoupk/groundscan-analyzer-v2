@@ -1,0 +1,106 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "GroundScan science validation report",
+  "description": "Unified science report. Evidence classes are complementary, never interchangeable. No bare recall/precision/accuracy keys exist at any level; synthetic metrics are domain-prefixed. Strict JSON: no NaN/Infinity literals.",
+  "type": "object",
+  "required": ["report", "science_schema_version", "verdict", "verdict_basis", "grouped_by_evidence_kind", "operating_point", "sections"],
+  "properties": {
+    "report": {"type": "string"},
+    "science_schema_version": {"type": "string"},
+    "verdict": {"type": "string"},
+    "verdict_basis": {"type": "array"},
+    "mode": {"type": "string"},
+    "grouped_by_evidence_kind": {"type": "object"},
+    "operating_point": {
+      "type": "object",
+      "required": ["policy_version", "primary_threshold", "status", "scientific_claim"],
+      "properties": {
+        "policy_version": {"type": "string"},
+        "primary_threshold": {"type": "number"},
+        "status": {"type": "string"},
+        "scientific_claim": {"type": "string"}
+      }
+    },
+    "sections": {
+      "type": "object",
+      "required": ["mathematical", "synthetic", "adversarial", "metamorphic", "reference_compatibility", "regression_protection", "field_validation"],
+      "properties": {
+        "mathematical": {
+          "type": "object",
+          "required": ["evidence_kind", "validation_domain", "status"],
+          "properties": {
+            "evidence_kind": {"type": "string"},
+            "validation_domain": {"type": "string"},
+            "status": {"type": "string"}
+          }
+        },
+        "synthetic": {
+          "type": "object",
+          "required": ["evidence_kind", "validation_domain", "status", "oracle_version", "families", "operating_point"],
+          "properties": {
+            "evidence_kind": {"type": "string"},
+            "validation_domain": {"type": "string"},
+            "status": {"type": "string"},
+            "oracle_version": {"type": "string"},
+            "cases": {"type": "number", "minimum": 0},
+            "families": {"type": "object"},
+            "failed_cases": {"type": "array"},
+            "operating_point": {"type": "object"}
+          }
+        },
+        "adversarial": {
+          "type": "object",
+          "required": ["evidence_kind", "validation_domain", "status", "oracle_version", "verdict_bins", "operating_point"],
+          "properties": {
+            "evidence_kind": {"type": "string"},
+            "validation_domain": {"type": "string"},
+            "status": {"type": "string"},
+            "oracle_version": {"type": "string"},
+            "cases": {"type": "number", "minimum": 0},
+            "verdict_bins": {"type": "object"},
+            "failed_cases": {"type": "array"},
+            "operating_point": {"type": "object"}
+          }
+        },
+        "metamorphic": {
+          "type": "object",
+          "required": ["evidence_kind", "validation_domain", "status", "pairs"],
+          "properties": {
+            "evidence_kind": {"type": "string"},
+            "validation_domain": {"type": "string"},
+            "status": {"type": "string"},
+            "pairs": {"type": "number", "minimum": 0},
+            "failed_pairs": {"type": "array"}
+          }
+        },
+        "reference_compatibility": {
+          "type": "object",
+          "required": ["evidence_kind", "validation_domain", "status"],
+          "properties": {
+            "evidence_kind": {"type": "string"},
+            "validation_domain": {"type": "string"},
+            "status": {"type": "string"}
+          }
+        },
+        "regression_protection": {
+          "type": "object",
+          "required": ["evidence_kind", "validation_domain", "status"],
+          "properties": {
+            "evidence_kind": {"type": "string"},
+            "validation_domain": {"type": "string"},
+            "status": {"type": "string"}
+          }
+        },
+        "field_validation": {
+          "type": "object",
+          "required": ["evidence_kind", "validation_domain", "status"],
+          "properties": {
+            "evidence_kind": {"type": "string"},
+            "validation_domain": {"type": "string"},
+            "status": {"type": "string"}
+          }
+        }
+      }
+    }
+  }
+}

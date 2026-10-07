@@ -1,0 +1,38 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.9
+    hooks:
+      - id: ruff-check
+        args: [--fix]
+        # Match CI's scope (`ruff check groundscan tests tools`). The hook
+        # otherwise linted groundscan_research/ too and reported 43 findings the
+        # gate never sees -- research code is explicitly non-shipping and
+        # non-gating, so a hook that fails on it trains people to pass --no-verify.
+        files: ^(groundscan|tests|tools)/
+      - id: ruff-format
+        # Python only. ruff also formats fenced ```python blocks inside Markdown,
+        # which silently restyles code quoted as evidence in docs/audit/ -- e.g. it
+        # rewrote a historical snippet's `W-1-xx` to `W - 1 - xx`. Formatting the
+        # repository's own code is the hook's job; editing the record is not.
+        exclude: \.md$
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v2.3.1
+    hooks:
+      - id: mypy
+        additional_dependencies: [types-setuptools, numpy>=2.0]
+        args: [groundscan/api.py, groundscan/models.py, groundscan/gates/thresholds.py, groundscan/services/single_scan.py, groundscan/site/consensus.py]
+        pass_filenames: false
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+        # scans/ holds vendor reference data, kept byte-exact as received. The
+        # hook was stripping a space from inside a Notes field in
+        # "Anomaly at the Edge.csv" -- a silent edit to reference bytes that
+        # belongs in a deliberate data change, not a style pass.
+        exclude: ^scans/
+      - id: end-of-file-fixer
+        exclude: ^scans/
+      - id: check-yaml
+      - id: check-added-large-files
+        args: ["--maxkb=800"]

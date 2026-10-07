@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://groundscan-analyzer/schemas/analysis.schema.json",
+  "title": "GroundScan single-scan analysis payload",
+  "description": "Machine contract for <label>_analysis.json. Scores are bounded heuristics, not probabilities.",
+  "type": "object",
+  "required": ["metadata", "geometry", "analysis", "quality_summary", "candidates"],
+  "properties": {
+    "metadata": {
+      "type": "object",
+      "required": ["extra"],
+      "properties": {
+        "device": {"type": ["string", "null"]},
+        "source_file": {"type": ["string", "null"]},
+        "extra": {"type": "object"}
+      }
+    },
+    "geometry": {"type": "string"},
+    "analysis": {
+      "type": "object",
+      "required": ["anomaly_threshold", "background_scales", "score_semantics"],
+      "properties": {
+        "anomaly_threshold": {"type": "number"},
+        "background_scales": {"type": "array", "items": {"type": "integer"}},
+        "score_semantics": {"type": "string"}
+      }
+    },
+    "zigzag": {"type": ["object", "null"]},
+    "data_quality": {"type": "object"},
+    "quality_summary": {"type": "object"},
+    "candidates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "x_center", "y_center", "pattern_hypothesis", "evidence_score", "confidence", "polarity", "review_status"],
+        "properties": {
+          "id": {"type": "integer"},
+          "x_center": {"type": "number"},
+          "y_center": {"type": "number"},
+          "pattern_hypothesis": {"type": "string"},
+          "evidence_score": {"type": "number"},
+          "confidence": {"type": "number"},
+          "polarity": {"type": "string"},
+          "review_status": {"type": "string"}
+        }
+      }
+    }
+  }
+}

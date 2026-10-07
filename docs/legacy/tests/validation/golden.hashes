@@ -1,0 +1,16 @@
+{
+  "geology.analysis.json": "b522047b0aad2fbbfa3d369758f4ddb1e82d57fe84d1e499744732f8a51ef92c",
+  "geology.candidates.csv": "247f7122160b1566506380457ae76555e12a425160d37ff77a7a51a46bea113a",
+  "iron_box.analysis.json": "7f2e66ea9c73436a953ca1266027dc21275349ce0ef574a957d0b5d0cee25a35",
+  "iron_box.candidates.csv": "43f059d811dde574c255330a96951924ecbff4300f65150b2bbabb5dda667571",
+  "negative_cavity.analysis.json": "2c2e3125168604603c11ba6a873ed9735d0e05840320717bb3dec5cc53a9ef66",
+  "negative_cavity.candidates.csv": "d893616b2e2b7fa6a59637bc467addac14ca188d17d723068a1260f0ad5f0535",
+  "pipeline.analysis.json": "602d24e28853f62c572e6f6d06cad45bec63dcc4e0cc39d26aa6150095f1e12d",
+  "pipeline.candidates.csv": "ad84e2c2bef881db1ba303f70b52c8f6d441b7b334b0bab487e311c056ff0c1c",
+  "positive_compact.analysis.json": "0e948f62a9a30ca9bef3ecc3d3df340b470647f5c1be9c2856036da8e5722b3c",
+  "positive_compact.candidates.csv": "0d338d1412156cf7f863bdb916405546167da2a219a4cfb1d3b65b2a22442112",
+  "site_two_pass.site_fused_candidates.csv": "bcc42aef14b36eb8422228cdd3b96b740dec432347eadac7e60edaaffdb3dc38",
+  "site_two_pass.site_fused_candidates.json": "09b949928656b93d59a7496ed81ef33c91624924d66a0eb127e4083971d942a4",
+  "tunnel.analysis.json": "5338e17102235b6d58cd6ca96df0db7b13e1ba1d7407943ef76631bfbab51f7a",
+  "tunnel.candidates.csv": "baa06ffb24fff1a38f551a69886acccd1ae4776cdcf4b3e42d089c7fe21e87d2"
+}

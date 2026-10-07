@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://groundscan-analyzer/schemas/site.schema.json",
+  "title": "GroundScan site fused-candidates payload",
+  "description": "Machine contract for site_fused_candidates.json. Scores are bounded heuristics, not probabilities.",
+  "type": "object",
+  "required": ["reference_label", "scan_count", "quality", "registration_status", "warnings", "candidates"],
+  "properties": {
+    "reference_label": {"type": "string"},
+    "scan_count": {"type": "integer", "minimum": 2},
+    "quality": {"type": "object"},
+    "registration_status": {"type": "string"},
+    "warnings": {"type": "array", "items": {"type": "string"}},
+    "registration": {"type": "object"},
+    "candidates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "x_center", "y_center", "pattern_hypothesis", "evidence_score", "scan_count", "detection_rate"],
+        "properties": {
+          "id": {"type": "integer"},
+          "x_center": {"type": "number"},
+          "y_center": {"type": "number"},
+          "pattern_hypothesis": {"type": "string"},
+          "evidence_score": {"type": "number"},
+          "scan_count": {"type": "integer"},
+          "detection_rate": {"type": "number"}
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "tree": "original",
+  "goldens": {
+    "geology.analysis.json": "499c0bcc10e486cec7d1232b1276700605ac1848b393a12831c78942dcbc01e9",
+    "geology.candidates.csv": "41dac14f9729cc100c8b51929394553b9769b46a14f28ae4c1594afce21c15df",
+    "negative_cavity.analysis.json": "9d038242729bc8bc1b407ae53e0f57ddf6a96b3d4fef70b279280724a69b83c2",
+    "negative_cavity.candidates.csv": "7e106251eb7664562333883dd525a11bbf3ce14d9809ac98eeee21eaf2b063df",
+    "pipeline.analysis.json": "abf54c4be4142228cd736249870d012b25199be9c6f7966f6ec05b4bdada238f",
+    "pipeline.candidates.csv": "26193469ea46a822a03e1d70c9755d235fcdc332d2d04108c7f9efa55cb99785",
+    "positive_compact.analysis.json": "831573ac63b03ee629c9d0b6a1653ff2b7f2cf10ddb0dccab015f993d9022c80",
+    "positive_compact.candidates.csv": "b335b0ec3ee26f64a2951db54634f466a2e611a802205edaeff77901c1da083b",
+    "site.site_fused_candidates.csv": "f4416e0473bdfd807fabbab4d8cf9ea033de3a1dd4add94c374742ab967caaa8",
+    "site.site_fused_candidates.json": "fd41e1746e19a29a3c187e465dfcdb2db34c8e44196a0c1a5c101d873cdf043f",
+    "tunnel.analysis.json": "8af4381b7b9a703b0c8014cbe383cfa9a7be895ce11c8164727ba4165d53b7a0",
+    "tunnel.candidates.csv": "17c96a453956e000539c5c91632dde9e914f89004e87eedaf8ff03690641c94f"
+  }
+}
