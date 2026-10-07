@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Python 3.13 CLI package managed with `uv` (src layout, `uv_build` backend). Intended purpose per `pyproject.toml`: an "OKM-focused ground scan analyzer with field-operational quality gating" — dependencies are declared ahead of the implementation, which is still a skeleton.
+Python 3.13 CLI package managed with `uv` (src layout, `uv_build` backend). Intended purpose per `pyproject.toml`: an "OKM-focused ground scan analyzer with field-operational quality gating" — `pyproject.toml` declares only the decided runtime set and the entry point dispatches subcommands on stdlib `argparse`; scientific behaviour is still ahead.
 
 ## Setup
 
@@ -18,7 +18,7 @@ Plain `uv run` auto-syncs; `--frozen` is used in this repo's commands to avoid r
 | Format | `uv run ruff format .` |
 | Typecheck | `uv run mypy` (config already sets `files = ["src", "tests"]` — no args needed) |
 | Test | `uv run pytest` |
-| Single test | `uv run pytest tests/test_smoke.py::test_main_prints_greeting --no-cov` |
+| Single test | `uv run pytest tests/test_smoke.py::test_main_is_reexported --no-cov` |
 | Debug ordering | add `-p no:randomly` |
 | Mutation | `uv run pytest --gremlins --no-cov` |
 | Dependency audit | `uv run deptry .` |
