@@ -1,0 +1,72 @@
+{
+  "contract_version": 1,
+  "convention": "default-numeric-reading-v1",
+  "decimal_separator": ".",
+  "registry_version": 1,
+  "scans": [
+    {
+      "cells": [
+        {
+          "impulse": 1,
+          "response": 10.0,
+          "scan_line": 1
+        },
+        {
+          "impulse": 2,
+          "response": 20.0,
+          "scan_line": 1
+        },
+        {
+          "impulse": 1,
+          "response": 30.0,
+          "scan_line": 2
+        },
+        {
+          "impulse": 2,
+          "response": 40.0,
+          "scan_line": 2
+        }
+      ],
+      "columns": [
+        "Depth Z [m]",
+        "Impulse X",
+        "Impulse X [m]",
+        "Latitude",
+        "Longitude",
+        "Scan Line Y",
+        "Scan Line Y [m]",
+        "Scan Value"
+      ],
+      "discrepancies": [],
+      "extent": {
+        "field_length": 3.0,
+        "field_width": 3.0
+      },
+      "latitude_presence": "present-but-empty",
+      "lattice": {
+        "impulses": [
+          1,
+          2
+        ],
+        "scan_lines": [
+          1,
+          2
+        ]
+      },
+      "longitude_presence": "present-but-empty",
+      "metric_check": {
+        "checked": true,
+        "mismatches": [],
+        "tolerance": 5e-05
+      },
+      "position": 0,
+      "sections": [
+        "Characteristics",
+        "Measuring Values",
+        "Meta Data",
+        "Soil Type"
+      ],
+      "status": "read"
+    }
+  ]
+}

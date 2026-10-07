@@ -4,16 +4,73 @@ from __future__ import annotations
 
 import argparse
 import re
+import struct
+import subprocess  # ruff: ignore[suspicious-subprocess-import] -- fixed argv, no shell
 import sys
 from typing import TYPE_CHECKING
 
 import pytest
 
 import groundscan_analyzer
+from groundscan_analyzer import document
 from groundscan_analyzer.cli import main
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+#: One minimal scan export: two impulses on two lines with a declared extent.
+SCAN_EXPORT = """+++ Characteristics +++
+Field Length: 3.00 m
+Field Width: 3.00 m
+
++++ Measuring Values +++
+Impulse X,Scan Line Y,Scan Value
+1.0000,1.0000,10.0000
+2.0000,1.0000,20.0000
+1.0000,2.0000,30.0000
+2.0000,2.0000,40.0000
+"""
+
+#: A scan export the contract declines: the response role is absent.
+REFUSED_EXPORT = """+++ Characteristics +++
+Field Length: 3.00 m
+Field Width: 3.00 m
+
++++ Measuring Values +++
+Impulse X,Scan Line Y
+1.0000,1.0000
+2.0000,1.0000
+"""
+
+
+def write_export(path: Path, text: str = SCAN_EXPORT) -> str:
+    """Write an export file, returning its intake token.
+
+    Args:
+        path: The directory receiving the export file.
+        text: The export text to write.
+
+    Returns:
+        The file token to hand to the command line.
+    """
+    target = path / "scan-export.txt"
+    target.write_text(text, encoding="utf-8")
+    return str(target)
+
+
+def bits(value: float) -> int:
+    """Expose the binary64 bits for exact comparison.
+
+    Args:
+        value: The float to inspect.
+
+    Returns:
+        The little-endian bit pattern as an integer.
+    """
+    packed = struct.pack("<d", value)
+    part: int = struct.unpack("<Q", packed)[0]
+    return part
+
 
 _RETIRED_NOUNS = (
     "acquisition",
@@ -121,20 +178,107 @@ def test_missing_required_input_exits_nonzero_with_usage_on_stderr(
     assert "usage" in capsys.readouterr().err.lower()
 
 
-def test_scan_accepts_one_named_scan(capsys: pytest.CaptureFixture[str]) -> None:
-    """The scan subcommand takes one explicitly named scan export."""
-    assert main(["scan", "first-export"]) == 0
-    assert "first-export" in capsys.readouterr().out
-
-
-def test_survey_accepts_explicitly_named_scans(
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    """The survey subcommand takes explicitly named scan exports."""
-    assert main(["survey", "first-export", "second-export"]) == 0
+def test_scan_reads_one_named_export(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """The scan subcommand reads its named export into a document."""
+    token = write_export(tmp_path)
+    assert main(["scan", token]) == 0
     out = capsys.readouterr().out
-    assert "first-export" in out
-    assert "second-export" in out
+    scan = document.loads(out).scans[0]
+    assert scan.status == "read"
+    assert token not in out
+    assert "scan-export.txt" not in out
+
+
+def test_scan_missing_export_is_an_error(capsys: pytest.CaptureFixture[str]) -> None:
+    """A name that reads nothing is an error, never an expansion."""
+    assert main(["scan", "no-such-export"]) == 1
+    captured = capsys.readouterr()
+    assert not captured.out
+    assert captured.err
+
+
+def test_scan_refused_export_still_succeeds(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A refused scan is a record on stdout, not a failed run."""
+    target = tmp_path / "bad-export.txt"
+    target.write_text(REFUSED_EXPORT, encoding="utf-8")
+    assert main(["scan", str(target)]) == 0
+    scan = document.loads(capsys.readouterr().out).scans[0]
+    assert scan.status == "refused"
+
+
+def test_scan_undecodable_export_stops_the_run(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Bytes that decode as nothing stop the run with no document."""
+    target = tmp_path / "bad-export.txt"
+    target.write_bytes(b"\xff\xfe\x00bad")
+    assert main(["scan", str(target)]) == 1
+    captured = capsys.readouterr()
+    assert not captured.out
+    assert captured.err
+
+
+def test_survey_reads_named_exports_in_sorted_order(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Survey intake runs in sorted order regardless of argument order."""
+    first = tmp_path / "alpha-export.txt"
+    second = tmp_path / "bravo-export.txt"
+    first.write_text(SCAN_EXPORT, encoding="utf-8")
+    second.write_text(SCAN_EXPORT.replace("10.0000", "99.0000"), encoding="utf-8")
+    assert main(["survey", str(second), str(first)]) == 0
+    forward = capsys.readouterr().out
+    assert main(["survey", str(first), str(second)]) == 0
+    assert capsys.readouterr().out == forward
+    doc = document.loads(forward)
+    assert len(doc.scans) == 2
+    assert doc.scans[0].status == "read"
+    assert doc.scans[1].status == "read"
+
+
+def test_survey_refusal_isolated_to_its_scan(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """One bad scan among several refuses only that scan."""
+    good = tmp_path / "good-export.txt"
+    bad = tmp_path / "bad-export.txt"
+    good.write_text(SCAN_EXPORT, encoding="utf-8")
+    bad.write_text(REFUSED_EXPORT, encoding="utf-8")
+    assert main(["survey", str(good), str(bad)]) == 0
+    doc = document.loads(capsys.readouterr().out)
+    assert sorted(scan.status for scan in doc.scans) == ["read", "refused"]
+
+
+def test_survey_run_failure_stops_run(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """An undecodable file stops the survey instead of refusing one scan."""
+    good = tmp_path / "good-export.txt"
+    bad = tmp_path / "bad-export.txt"
+    good.write_text(SCAN_EXPORT, encoding="utf-8")
+    bad.write_bytes(b"\xff\xfe\x00bad")
+    assert main(["survey", str(good), str(bad)]) == 1
+    captured = capsys.readouterr()
+    assert not captured.out
+    assert captured.err
+
+
+def test_two_fresh_processes_emit_identical_bytes(tmp_path: Path) -> None:
+    """The same export gives the same bytes across two fresh processes."""
+    token = write_export(tmp_path)
+    code = (
+        f"import sys; from groundscan_analyzer.cli import main; sys.exit(main(['scan', {token!r}]))"
+    )
+    first = subprocess.run(  # ruff: ignore[subprocess-without-shell-equals-true] -- fixed argv
+        [sys.executable, "-c", code], capture_output=True, text=True, check=False
+    )
+    second = subprocess.run(  # ruff: ignore[subprocess-without-shell-equals-true] -- fixed argv
+        [sys.executable, "-c", code], capture_output=True, text=True, check=False
+    )
+    assert first.returncode == 0
+    assert second.returncode == 0
+    assert first.stdout == second.stdout
+    assert first.stdout
 
 
 @pytest.mark.parametrize("argv", [["--help"], ["scan", "--help"], ["survey", "--help"]])
@@ -148,37 +292,23 @@ def test_help_output_carries_no_presentational_markup(
 
 
 def test_valid_output_carries_no_presentational_markup(
-    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """Successful output is plain text: no colour codes or pager behaviour."""
-    assert main(["survey", "first-export"]) == 0
+    token = write_export(tmp_path)
+    assert main(["scan", token]) == 0
     assert "\x1b" not in capsys.readouterr().out
 
 
-def test_survey_processes_scans_in_deterministic_order(
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    """Multi-scan intake runs in sorted order regardless of argument order."""
-    assert main(["survey", "charlie-export", "alpha-export", "bravo-export"]) == 0
-    assert capsys.readouterr().out == "survey: alpha-export bravo-export charlie-export\n"
-
-
-def test_survey_order_is_independent_of_argument_order(
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    """Shuffled intake spellings yield the same output line."""
-    assert main(["survey", "second-export", "first-export"]) == 0
-    first = capsys.readouterr().out
-    assert main(["survey", "first-export", "second-export"]) == 0
-    second = capsys.readouterr().out
-    assert first == second
-    assert first == "survey: first-export second-export\n"
-
-
-def test_odd_scan_names_change_nothing(capsys: pytest.CaptureFixture[str]) -> None:
-    """No scan relation is inferred from a filename: odd names echo back sorted."""
-    assert main(["survey", "scan_Same_01", "scan_90-clockwise_02"]) == 0
-    assert capsys.readouterr().out == "survey: scan_90-clockwise_02 scan_Same_01\n"
+def test_odd_scan_names_change_nothing(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """No scan relation is inferred from a filename: odd names still read."""
+    first = tmp_path / "scan_Same_01.txt"
+    second = tmp_path / "scan_90-clockwise_02.txt"
+    first.write_text(SCAN_EXPORT, encoding="utf-8")
+    second.write_text(SCAN_EXPORT, encoding="utf-8")
+    assert main(["survey", str(first), str(second)]) == 0
+    doc = document.loads(capsys.readouterr().out)
+    assert [scan.status for scan in doc.scans] == ["read", "read"]
 
 
 def test_survey_without_named_scans_is_misuse(capsys: pytest.CaptureFixture[str]) -> None:
@@ -191,21 +321,32 @@ def test_survey_without_named_scans_is_misuse(capsys: pytest.CaptureFixture[str]
     assert "\x1b" not in err
 
 
-def test_intake_tokens_are_never_expanded(capsys: pytest.CaptureFixture[str]) -> None:
+def test_intake_tokens_are_never_expanded(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
     """Glob characters stay literal intake names: nothing is expanded."""
-    assert main(["survey", "b-export", "*"]) == 0
-    assert capsys.readouterr().out == "survey: * b-export\n"
+    monkeypatch.chdir(tmp_path)
+    assert main(["survey", "*"]) == 1
+    captured = capsys.readouterr()
+    assert not captured.out
+    assert captured.err
 
 
 def test_unnamed_neighbours_are_never_read(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """Scans present beside the invocation are ignored unless explicitly named."""
-    (tmp_path / "aaa-export").touch()
-    (tmp_path / "zzz-export").touch()
+    (tmp_path / "aaa-export.txt").write_text(SCAN_EXPORT, encoding="utf-8")
+    named = tmp_path / "zzz-export.txt"
+    named.write_text(SCAN_EXPORT.replace("10.0000", "77.0000"), encoding="utf-8")
     monkeypatch.chdir(tmp_path)
-    assert main(["survey", "zzz-export"]) == 0
-    assert capsys.readouterr().out == "survey: zzz-export\n"
+    assert main(["survey", "zzz-export.txt"]) == 0
+    doc = document.loads(capsys.readouterr().out)
+    assert len(doc.scans) == 1
+    scan = doc.scans[0]
+    assert scan.status == "read"
+    assert scan.cells[0].response is not None
+    assert bits(scan.cells[0].response) == bits(77.0)
 
 
 @pytest.mark.parametrize("argv", [["--help"], ["scan", "--help"], ["survey", "--help"]])

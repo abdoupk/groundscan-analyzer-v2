@@ -3,11 +3,43 @@
 from __future__ import annotations
 
 import argparse
+from pathlib import Path
 import sys
 from typing import TYPE_CHECKING
 
+from groundscan_analyzer import document, reader
+
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
+
+
+def _read_export(name: str) -> bytes | None:
+    """Read one named export, reporting an unreadable file on stderr.
+
+    Args:
+        name: The intake token naming the scan export.
+
+    Returns:
+        The raw export bytes, or None when the file cannot be read.
+    """
+    try:
+        return Path(name).read_bytes()
+    except OSError:
+        print(f"cannot read scan export: {name}", file=sys.stderr)
+        return None
+
+
+def _emit(doc: document.Document) -> int:
+    """Write one survey document to stdout.
+
+    Args:
+        doc: The validated survey document.
+
+    Returns:
+        The process exit code: zero on success.
+    """
+    print(document.dumps(doc), end="")
+    return 0
 
 
 def _run_scan(args: argparse.Namespace) -> int:
@@ -17,10 +49,17 @@ def _run_scan(args: argparse.Namespace) -> int:
         args: The parsed arguments, carrying the named scan export.
 
     Returns:
-        The process exit code: zero on success.
+        The process exit code: zero on success, one when the file cannot
+        be read or stops the run.
     """
-    print(f"scan: {args.scan}")
-    return 0
+    content = _read_export(args.scan)
+    if content is None:
+        return 1
+    try:
+        return _emit(reader.read_document([content]))
+    except reader.RunLevelError as exc:
+        print(f"scan export cannot be read: {exc}", file=sys.stderr)
+        return 1
 
 
 def _run_survey(args: argparse.Namespace) -> int:
@@ -28,16 +67,29 @@ def _run_survey(args: argparse.Namespace) -> int:
 
     The named scans are handled in sorted order so the same survey reads
     the same way regardless of argument or filesystem order. Names are
-    opaque intake tokens: no scan relation is inferred from them.
+    opaque intake tokens: no scan relation is inferred from them. One bad
+    scan among several refuses only that scan; a run-level failure stops
+    the run instead.
 
     Args:
         args: The parsed arguments, carrying the named scan exports.
 
     Returns:
-        The process exit code: zero on success.
+        The process exit code: zero on success, one when a file cannot
+        be read or stops the run.
     """
-    print(f"survey: {' '.join(sorted(args.scans))}")
-    return 0
+    names = sorted(args.scans)
+    contents: list[bytes] = []
+    for name in names:
+        content = _read_export(name)
+        if content is None:
+            return 1
+        contents.append(content)
+    try:
+        return _emit(reader.read_document(contents))
+    except reader.RunLevelError as exc:
+        print(f"survey cannot be read: {exc}", file=sys.stderr)
+        return 1
 
 
 def _build_parser() -> argparse.ArgumentParser:

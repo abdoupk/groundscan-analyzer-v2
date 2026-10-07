@@ -1,0 +1,30 @@
++++ Characteristics +++
+Project Title: Acceptance Single
+Date: 21.03.2020
+Time: 07:51
+Field Length: 3.00 m
+Field Width: 3.00 m
+Notes: the user has performed a control scan
+Operating Mode: 3D Ground Scan
+Scan Mode: Zigzag
+Impulse Mode: Automatic
+
++++ Meta Data +++
+Date / Time: 21.03.2020, 07:51
+Scan Mode: Zigzag
+Impulse Mode: Automatic
+
++++ Soil Type +++
+Title: Gravel
+Dielectric Constant: 2.60
+Relative Permeability: 1.00
+Mineralization: 30 %
+Humidity: 20 %
+Homogeneity: 50 %
+
++++ Measuring Values +++
+Impulse X,Scan Line Y,Impulse X [m],Scan Line Y [m],Depth Z [m],Scan Value,Latitude,Longitude
+1.0000,1.0000,0.0000,0.0000,0.1000,10.0000,,
+2.0000,1.0000,3.0000,0.0000,0.2000,20.0000,,
+1.0000,2.0000,0.0000,3.0000,0.3000,30.0000,,
+2.0000,2.0000,3.0000,3.0000,0.4000,40.0000,,

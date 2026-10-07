@@ -1,0 +1,8 @@
++++ Characteristics +++
+Field Length: 3.00 m
+Field Width: 3.00 m
+
++++ Measuring Values +++
+Impulse X,Scan Line Y
+1.0000,1.0000
+2.0000,1.0000
