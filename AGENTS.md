@@ -10,6 +10,8 @@ uv sync                 # creates .venv (Python pinned by .python-version: 3.13)
 
 Plain `uv run` auto-syncs; `--frozen` is used in this repo's commands to avoid re-resolving. Never `pip install` into `.venv`.
 
+The shell is PowerShell without Unix utils (`head`, `grep`, bare `python3`, and Unix-style `gh` pipes/quoting all fail); prefer the dedicated file tools and `uv run python`.
+
 ## Commands
 
 | Task | Command |
@@ -56,6 +58,7 @@ uv run pre-commit run --hook-stage manual --all-files
 - `flake8-type-checking` is `strict = true` → typing-only imports go inside `if TYPE_CHECKING:`.
 - `flake8-annotations`: `mypy-init-return = true` (`__init__` must be annotated `-> None`), `allow-star-arg-any = false` (no unannotated `*args`).
 - Size/complexity caps: `max-args = 5`, `max-branches = 10`, `max-returns = 4`, `max-statements = 40`, `max-complexity = 8`. Split functions rather than suppressing with `# noqa`.
+- Assign exception messages to a variable before raising (EM101/TRY003); document exactly the exceptions a function raises itself; suppress only as `ruff: ignore[rule-name]` with a reason.
 - `tests/**` ignores `D`, `assert`, `private-member-access`, `magic-value-comparison`, `too-many-arguments` — test files do not need docstrings.
 
 ## mypy is stricter than default strict
@@ -64,7 +67,7 @@ uv run pre-commit run --hook-stage manual --all-files
 
 ## Dependency gate
 
-`uv run deptry .` is blocking and currently reports zero findings. `pyproject.toml` declares only the decided runtime set (`numpy`, `pydantic`, `scipy`); the [evaluation](https://github.com/abdoupk/groundscan-analyzer-v2/issues/19) ruled `natsort`, `orjson`, `pint`, `typer`, and `rich` **out**. The three admitted-but-not-yet-imported packages are scoped in `[tool.deptry.per_rule_ignores]` by decision, not by drift — any other DEP002 is a defect. Do not add a declared-but-unimported dependency to make a future slice convenient; that inverts the gate.
+`uv run deptry .` is blocking and currently reports zero findings. `pyproject.toml` declares only the decided runtime set (`numpy`, `pydantic`, `scipy`); the [evaluation](https://github.com/abdoupk/groundscan-analyzer-v2/issues/19) ruled `natsort`, `orjson`, `pint`, `typer`, and `rich` **out**. The admitted-but-not-yet-imported set is scoped in `[tool.deptry.per_rule_ignores]`; importing one narrows the scope, so any other DEP002 is a defect. Do not add a declared-but-unimported dependency to make a future slice convenient; that inverts the gate.
 
 ## Files to leave alone
 
@@ -80,6 +83,10 @@ uv run pre-commit run --hook-stage manual --all-files
 ## Git hygiene
 
 `.gitignore` covers only `__pycache__/`, `*.py[oc]`, `build/`, `dist/`, `wheels/`, `*.egg-info`, and `.venv`. Tool caches are **not** ignored: `.mypy_cache/`, `.pytest_cache/`, `.ruff_cache/`, `.coverage`, and `.gremlins_cache/` (created by `pytest --gremlins`) all show up as untracked. Delete them before staging.
+
+## Implementing an engine slice
+
+Read the ticket body, then #127's Implementation Decisions, then the `CONTEXT.md` entries they cite; on conflict the ticket wins. `docs/legacy/` is archaeology: read and cite it, never import it.
 
 ## Agent skills
 
