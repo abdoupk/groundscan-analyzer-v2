@@ -57,19 +57,17 @@ repos:
         pass_filenames: false
         always_run: true
 
-      # deptry reports five DEP002s: runtime dependencies the project has
-      # deliberately pre-declared and not yet undeclared. Issue #83 rules that
-      # deptry joins the commit path the moment those verdicts reach
-      # pyproject.toml, and not before - a gate that arrives failing is read as a
-      # bad gate rather than as a real discrepancy, and then gets --no-verify'd.
-      # Until then it is a manual hook, not a blocking one.
+      # deptry is the dependency gate. The #19 verdicts have reached
+      # pyproject.toml, so a declared-but-unimported package is a defect and
+      # deptry runs on the commit path. The admitted-but-not-yet-imported set
+      # is scoped in [tool.deptry.per_rule_ignores]; anything else unimported
+      # fails the commit.
       - id: deptry
         name: deptry
         entry: uv run --frozen deptry .
         language: system
         pass_filenames: false
         always_run: true
-        stages: [manual]
 
       # Mutation testing and the CVE scan are gates, but they cost minutes and
       # the second needs the network, so they are not on the commit path.

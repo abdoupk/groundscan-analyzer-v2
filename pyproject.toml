@@ -8,14 +8,9 @@ authors = [
 ]
 requires-python = ">=3.13"
 dependencies = [
-    "natsort>=8.4.0",
     "numpy>=2.5.3",
-    "orjson>=3.12.0",
-    "pint>=0.26.1",
     "pydantic>=2.13.5",
-    "rich>=15.0.0",
     "scipy>=1.18.1",
-    "typer>=0.27.2",
 ]
 
 [project.scripts]
@@ -94,9 +89,6 @@ runtime-evaluated-base-classes = [
     "pydantic_settings.BaseSettings",
 ]
 runtime-evaluated-decorators = ["pydantic.validate_call"]
- 
-[tool.ruff.lint.flake8-bugbear]
-extend-immutable-calls = ["typer.Option", "typer.Argument"]
  
 [tool.ruff.lint.mccabe]
 max-complexity = 8
@@ -197,6 +189,14 @@ known_first_party = ["groundscan_analyzer"]
 # Setting `exclude` REPLACES deptry's defaults rather than extending them, so the
 # defaults are carried here verbatim - dropping them puts .venv back in scope.
 exclude = ["docs", "scripts", "venv", '\.venv', '\.direnv', "tests", '\.git', 'setup\.py']
+
+[tool.deptry.per_rule_ignores]
+# Admitted by the dependency evaluation (#19) for capabilities decided in
+# closed tickets: the data-model package plus the narrowed numeric pair.
+# Later slices import them; until then they are declared-but-unimported by
+# decision, not by drift. Scoped to exactly this set, so any other DEP002
+# remains a defect and the gate still bites.
+DEP002 = ["numpy", "pydantic", "scipy"]
 
 # ---------- vulture ----------
 [tool.vulture]
