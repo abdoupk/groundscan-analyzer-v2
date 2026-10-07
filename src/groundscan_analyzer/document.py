@@ -16,7 +16,7 @@ from typing import Annotated, Literal, NoReturn
 
 from pydantic import BaseModel, BeforeValidator, ConfigDict, Field
 
-from groundscan_analyzer import background, dialect
+from groundscan_analyzer import background, dialect, hierarchy
 from groundscan_analyzer.property_registry import CONTRACT_VERSION, REGISTRY_VERSION
 
 
@@ -111,6 +111,66 @@ class Extent(BaseModel):
     field_width: FiniteOptionalFloat = None
 
 
+class DetectionCell(BaseModel):
+    """One lattice coordinate belonging to a detection, in lattice order."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    impulse: int = Field(ge=0)
+    scan_line: int = Field(ge=0)
+
+
+class Detection(BaseModel):
+    """One node of the component hierarchy.
+
+    A detection is a node, not a choice from the tree, and it carries its
+    birth level as a recorded fact. Identity is the birth, never the cell
+    set: the identity string encodes polarity, birth level and sibling
+    rank, so a cell set that vanishes and later returns is a second
+    detection. Numbering is presentation in lattice order starting at one
+    and excluding padding, so moving or adding padding renumbers nothing.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    identity: str
+    number: int = Field(ge=1)
+    polarity: Literal["positive", "negative"]
+    birth_level: FiniteFloat
+    cells: list[DetectionCell]
+
+
+class Hierarchy(BaseModel):
+    """The per-polarity component tree shipped as four arrays.
+
+    The four arrays are the positive levels, the negative levels, the
+    detections and the parent map. Every node of the hierarchy is a
+    detection carrying its birth level. Levels are raw residuals, never
+    scale-normalised, so the tree exists whenever the residual field
+    does. Connectivity is fixed in the contract and recorded. The record
+    states both populations, measured cells and cells entering the
+    hierarchy, so a detection count is never read as covering the whole
+    scan. A cut at any level moves no engine output. A node is alive at
+    a cut exactly while the cut lies at or below its birth and strictly
+    above its parent's birth, so the alive count at a cut is the
+    component count there.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    connectivity: Literal["4-connectivity"] = hierarchy.CONNECTIVITY  # type: ignore[assignment]
+    level_kind: Literal["raw-residual"] = hierarchy.LEVEL_KIND  # type: ignore[assignment]
+    cut_guarantee: Literal["you may cut anywhere and lose nothing the engine computed"] = (
+        hierarchy.CUT_GUARANTEE  # type: ignore[assignment]
+    )
+    measured_cells: int = Field(ge=0)
+    cells_in_hierarchy: int = Field(ge=0)
+    levels_positive: list[FiniteFloat]
+    levels_negative: list[FiniteFloat]
+    detections: list[Detection]
+    parents: list[int | None]
+
+
 class MetricMismatch(BaseModel):
     """One vendor echo value disagreeing with the derived series."""
 
@@ -163,6 +223,7 @@ class ScanRead(BaseModel):
     lattice: Lattice
     cells: list[Cell]
     background_model: BackgroundModel
+    hierarchy: Hierarchy
     extent: Extent
     latitude_presence: PresenceState
     longitude_presence: PresenceState

@@ -57,6 +57,59 @@
         "field_length": 3.0,
         "field_width": 3.0
       },
+      "hierarchy": {
+        "cells_in_hierarchy": 4,
+        "connectivity": "4-connectivity",
+        "cut_guarantee": "you may cut anywhere and lose nothing the engine computed",
+        "detections": [
+          {
+            "birth_level": 15.0,
+            "cells": [
+              {
+                "impulse": 1,
+                "scan_line": 2
+              },
+              {
+                "impulse": 2,
+                "scan_line": 2
+              }
+            ],
+            "identity": "positive@15.0#0",
+            "number": 2,
+            "polarity": "positive"
+          },
+          {
+            "birth_level": -15.0,
+            "cells": [
+              {
+                "impulse": 1,
+                "scan_line": 1
+              },
+              {
+                "impulse": 2,
+                "scan_line": 1
+              }
+            ],
+            "identity": "negative@-15.0#0",
+            "number": 1,
+            "polarity": "negative"
+          }
+        ],
+        "level_kind": "raw-residual",
+        "levels_negative": [
+          -15.0,
+          -5.0
+        ],
+        "levels_positive": [
+          15.0,
+          5.0
+        ],
+        "measured_cells": 4,
+        "parents": [
+          null,
+          null
+        ]
+      },
       "latitude_presence": "present-but-empty",
       "lattice": {
         "impulses": [

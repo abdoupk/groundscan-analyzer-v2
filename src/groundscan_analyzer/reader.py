@@ -14,7 +14,7 @@ from collections import Counter
 import re
 from typing import TYPE_CHECKING, Literal, NamedTuple
 
-from groundscan_analyzer import background, dialect, document, input_contract
+from groundscan_analyzer import background, dialect, document, hierarchy, input_contract
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -846,16 +846,16 @@ def _residual_map(rows: list[_Row]) -> dict[tuple[int, int], float]:
     return background.residuals(measured)
 
 
-def _read_cells(rows: list[_Row]) -> list[document.Cell]:
+def _read_cells(rows: list[_Row], remaining: dict[tuple[int, int], float]) -> list[document.Cell]:
     """Build the cell records with residuals in file order.
 
     Args:
         rows: The accepted rows in file order.
+        remaining: The residual per measured coordinate, in original units.
 
     Returns:
         One cell per row, carrying a null residual where padding.
     """
-    remaining = _residual_map(rows)
     return [
         document.Cell(
             impulse=row.impulse,
@@ -865,6 +865,39 @@ def _read_cells(rows: list[_Row]) -> list[document.Cell]:
         )
         for row in rows
     ]
+
+
+def _read_hierarchy(remaining: dict[tuple[int, int], float]) -> document.Hierarchy:
+    """Build the threshold-free hierarchy over one scan's residuals.
+
+    Args:
+        remaining: The residual per measured coordinate, in original units.
+
+    Returns:
+        The component hierarchy with its detections and parent map.
+    """
+    tree = hierarchy.build(remaining)
+    detections = [
+        document.Detection(
+            identity=item.identity,
+            number=item.number,
+            polarity=item.polarity,
+            birth_level=item.birth,
+            cells=[
+                document.DetectionCell(impulse=impulse, scan_line=scan_line)
+                for impulse, scan_line in item.cells
+            ],
+        )
+        for item in tree.detections
+    ]
+    return document.Hierarchy(
+        measured_cells=tree.measured_cells,
+        cells_in_hierarchy=tree.cells_in_hierarchy,
+        levels_positive=list(tree.levels_positive),
+        levels_negative=list(tree.levels_negative),
+        detections=detections,
+        parents=list(tree.parents),
+    )
 
 
 def _read_scan_inner(text: str, position: int) -> document.ScanRead | document.ScanRefused:
@@ -892,9 +925,8 @@ def _read_scan_inner(text: str, position: int) -> document.ScanRead | document.S
     layout = _layout(entries)
     extent = _read_extent(blocks)
     _check_soil(blocks)
-    data = measuring.lines[1:]
-    _check_row_commas(data, delimiter, layout)
-    table = _evaluate_rows(data, delimiter, len(header_cells), layout)
+    _check_row_commas(measuring.lines[1:], delimiter, layout)
+    table = _evaluate_rows(measuring.lines[1:], delimiter, len(header_cells), layout)
     if table.issues:
         first = table.issues[0]
         detail = f"{len(table.issues)} failing rows, first at line {first.line}"
@@ -902,14 +934,16 @@ def _read_scan_inner(text: str, position: int) -> document.ScanRead | document.S
     metric_check = _check_metrics(table.rows, extent)
     impulses = sorted({row.impulse for row in table.rows})
     scan_lines = sorted({row.scan_line for row in table.rows})
+    remaining = _residual_map(table.rows)
     return document.ScanRead(
         status="read",
         position=position,
         sections=sorted(entry.name for entry in _present_sections(blocks)),
         columns=sorted(entry.name for entry in entries),
         lattice=document.Lattice(impulses=impulses, scan_lines=scan_lines),
-        cells=_read_cells(table.rows),
+        cells=_read_cells(table.rows, remaining),
         background_model=document.BackgroundModel(),
+        hierarchy=_read_hierarchy(remaining),
         extent=extent,
         latitude_presence=_presence(layout.latitude, has_value=table.latitude_value),
         longitude_presence=_presence(layout.longitude, has_value=table.longitude_value),
