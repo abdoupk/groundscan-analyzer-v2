@@ -2,6 +2,7 @@
   "contract_version": 1,
   "convention": "default-numeric-reading-v1",
   "decimal_separator": ".",
+  "quantity_registry_version": 1,
   "registry_version": 1,
   "scans": [
     {
@@ -59,27 +60,93 @@
       },
       "hierarchy": {
         "cells_in_hierarchy": 4,
-        "connectivity": "4-connectivity",
-        "cut_guarantee": "you may cut anywhere and lose nothing the engine computed",
-        "detections": [
+        "component_counts": [
           {
-            "birth_level": 15.0,
-            "cells": [
-              {
-                "impulse": 1,
-                "scan_line": 2
-              },
-              {
-                "impulse": 2,
-                "scan_line": 2
-              }
-            ],
-            "identity": "positive@15.0#0",
-            "number": 2,
+            "connectivity": "4-connectivity",
+            "count": 1,
+            "denominator": 4,
+            "level": 15.0,
             "polarity": "positive"
           },
           {
+            "connectivity": "4-connectivity",
+            "count": 1,
+            "denominator": 4,
+            "level": 5.0,
+            "polarity": "positive"
+          },
+          {
+            "connectivity": "4-connectivity",
+            "count": 1,
+            "denominator": 4,
+            "level": -15.0,
+            "polarity": "negative"
+          },
+          {
+            "connectivity": "4-connectivity",
+            "count": 1,
+            "denominator": 4,
+            "level": -5.0,
+            "polarity": "negative"
+          }
+        ],
+        "connectivity": "4-connectivity",
+        "cut_guarantee": "you may cut anywhere and lose nothing the engine computed",
+        "detection_counts": [
+          {
+            "connectivity": "4-connectivity",
+            "count": 1,
+            "denominator": 4,
+            "polarity": "positive"
+          },
+          {
+            "connectivity": "4-connectivity",
+            "count": 1,
+            "denominator": 4,
+            "polarity": "negative"
+          }
+        ],
+        "detections": [
+          {
+            "birth_level": 15.0,
+            "cell_count": 2,
+            "cells": [
+              {
+                "impulse": 1,
+                "scan_line": 2
+              },
+              {
+                "impulse": 2,
+                "scan_line": 2
+              }
+            ],
+            "compactness": 0.6981317007977318,
+            "depth": {
+              "kind": "device-reported",
+              "maximum": 0.4,
+              "minimum": 0.3
+            },
+            "field_area": 18.0,
+            "field_area_withheld": null,
+            "identity": "positive@15.0#0",
+            "lattice_boundary_cells": [
+              {
+                "impulse": 1,
+                "scan_line": 2
+              },
+              {
+                "impulse": 2,
+                "scan_line": 2
+              }
+            ],
+            "number": 2,
+            "padding_adjacent_cells": [],
+            "polarity": "positive",
+            "solidity": 1.0
+          },
+          {
             "birth_level": -15.0,
+            "cell_count": 2,
             "cells": [
               {
                 "impulse": 1,
@@ -90,9 +157,29 @@
                 "scan_line": 1
               }
             ],
+            "compactness": 0.6981317007977318,
+            "depth": {
+              "kind": "device-reported",
+              "maximum": 0.2,
+              "minimum": 0.1
+            },
+            "field_area": 18.0,
+            "field_area_withheld": null,
             "identity": "negative@-15.0#0",
+            "lattice_boundary_cells": [
+              {
+                "impulse": 1,
+                "scan_line": 1
+              },
+              {
+                "impulse": 2,
+                "scan_line": 1
+              }
+            ],
             "number": 1,
-            "polarity": "negative"
+            "padding_adjacent_cells": [],
+            "polarity": "negative",
+            "solidity": 1.0
           }
         ],
         "level_kind": "raw-residual",

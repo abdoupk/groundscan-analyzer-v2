@@ -14,7 +14,14 @@ from collections import Counter
 import re
 from typing import TYPE_CHECKING, Literal, NamedTuple
 
-from groundscan_analyzer import background, dialect, document, hierarchy, input_contract
+from groundscan_analyzer import (
+    background,
+    descriptors,
+    dialect,
+    document,
+    hierarchy,
+    input_contract,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -97,12 +104,13 @@ class _Layout(NamedTuple):
 
 
 class _Row(NamedTuple):
-    """One evaluated row: lattice position, response and echo values."""
+    """One evaluated row: lattice position, response, depth and echo values."""
 
     lineno: int
     impulse: int
     scan_line: int
     response: float | None
+    depth: float | None
     metric_x: float | None
     metric_y: float | None
     metric_x_raw: str
@@ -541,7 +549,7 @@ def _evaluate_row(
     parsed = _parse_row_tokens(padded, layout)
     if parsed is None:
         return document.RowIssue(line=lineno, reason="unparseable-row")
-    impulse, scan_line, response, metric_x, metric_y = parsed
+    impulse, scan_line, response, depth, metric_x, metric_y = parsed
     if impulse is None or scan_line is None:
         return document.RowIssue(line=lineno, reason="invalid-index-value")
     key = (impulse, scan_line)
@@ -553,6 +561,7 @@ def _evaluate_row(
         impulse=impulse,
         scan_line=scan_line,
         response=response,
+        depth=depth,
         metric_x=metric_x[0],
         metric_y=metric_y[0],
         metric_x_raw=metric_x[1],
@@ -567,6 +576,7 @@ def _parse_row_tokens(
         int | None,
         int | None,
         float | None,
+        float | None,
         tuple[float | None, str],
         tuple[float | None, str],
     ]
@@ -575,14 +585,16 @@ def _parse_row_tokens(
     """Parse one row's numeric tokens, failing on any unparseable one.
 
     An empty index cell is not unparseable here; the index rule owns it.
+    Depth travels for the interval, never as a spatial input.
 
     Args:
         padded: The row fields padded to the header length with empties.
         layout: The column positions by role.
 
     Returns:
-        The impulse, scan line, response and echo pairs, or None when any
-        non-empty numeric token falls outside the numeral grammar.
+        The impulse, scan line, response, depth and echo pairs, or None
+        when any non-empty numeric token falls outside the numeral
+        grammar.
     """
     for index in _numeric_positions(layout):
         token = padded[index].strip()
@@ -591,9 +603,10 @@ def _parse_row_tokens(
     impulse = _parse_index(padded[layout.impulse])
     scan_line = _parse_index(padded[layout.scan_line])
     response = _parse_optional(padded[layout.response])
+    depth = _parse_optional(padded[layout.depth]) if layout.depth is not None else None
     metric_x = _parse_echo(padded, layout.metric_x)
     metric_y = _parse_echo(padded, layout.metric_y)
-    return impulse, scan_line, response, metric_x, metric_y
+    return impulse, scan_line, response, depth, metric_x, metric_y
 
 
 def _parse_index(token: str) -> int | None:
@@ -867,29 +880,147 @@ def _read_cells(rows: list[_Row], remaining: dict[tuple[int, int], float]) -> li
     ]
 
 
-def _read_hierarchy(remaining: dict[tuple[int, int], float]) -> document.Hierarchy:
+class _DetectionContext(NamedTuple):
+    """Per-scan facts behind one detection's descriptors and tallies."""
+
+    depths: dict[tuple[int, int], float | None]
+    field_length: float | None
+    field_width: float | None
+    impulse_count: int
+    scan_line_count: int
+    bounds: tuple[int, int, int, int]
+    unmeasured: frozenset[tuple[int, int]]
+
+
+def _sample_depths(
+    depths: dict[tuple[int, int], float | None], coords: list[tuple[int, int]]
+) -> list[float]:
+    """Collect one detection's carried depth values, skipping gaps.
+
+    Args:
+        depths: Device values over measured cells, None where unvalued.
+        coords: The detection's lattice coordinates in lattice order.
+
+    Returns:
+        The carried values, empty where no sample carries one.
+    """
+    found: list[float] = []
+    for key in coords:
+        value = depths.get(key)
+        if value is not None:
+            found.append(value)
+    return found
+
+
+def _to_cells(coords: Sequence[tuple[int, int]]) -> list[document.DetectionCell]:
+    """Record lattice coordinates in lattice order.
+
+    Args:
+        coords: Impulse and scan-line pairs in lattice order.
+
+    Returns:
+        One record cell per coordinate.
+    """
+    return [
+        document.DetectionCell(impulse=impulse, scan_line=scan_line)
+        for impulse, scan_line in coords
+    ]
+
+
+def _read_detection(
+    item: hierarchy.DetectionData, context: _DetectionContext
+) -> document.Detection:
+    """Record one hierarchy node with its descriptors and tallies.
+
+    Args:
+        item: The node's identity, number, polarity, birth and cells.
+        context: The scan's depths, geometry and boundary facts.
+
+    Returns:
+        The detection carrying solidity, compactness, field area, depth
+        interval, boundary facts and size in cells.
+    """
+    coords = list(item.cells)
+    area = descriptors.field_area_result(
+        len(coords),
+        context.field_length,
+        context.field_width,
+        context.impulse_count,
+        context.scan_line_count,
+    )
+    interval = descriptors.depth_interval(_sample_depths(context.depths, coords))
+    boundary, adjacent = descriptors.split_boundary(coords, context.bounds, context.unmeasured)
+    return document.Detection(
+        identity=item.identity,
+        number=item.number,
+        polarity=item.polarity,
+        birth_level=item.birth,
+        cells=_to_cells(coords),
+        cell_count=len(coords),
+        solidity=descriptors.solidity(coords),
+        compactness=descriptors.compactness(coords),
+        field_area=area.value,
+        field_area_withheld=area.withheld,
+        depth=(
+            document.DepthInterval(minimum=interval[0], maximum=interval[1])
+            if interval is not None
+            else None
+        ),
+        lattice_boundary_cells=_to_cells(boundary),
+        padding_adjacent_cells=_to_cells(adjacent),
+    )
+
+
+def _detection_context(
+    rows: list[_Row],
+    extent: document.Extent,
+    impulses: list[int],
+    scan_lines: list[int],
+) -> _DetectionContext:
+    """Gather the per-scan facts behind detection descriptors.
+
+    Args:
+        rows: The accepted rows in file order.
+        extent: The declared extent, absent where never declared.
+        impulses: The observed impulse indices in order.
+        scan_lines: The observed scan-line indices in order.
+
+    Returns:
+        Depths over measured cells with geometry and boundary facts.
+    """
+    depths: dict[tuple[int, int], float | None] = {}
+    for row in rows:
+        if row.response is not None:
+            depths[row.impulse, row.scan_line] = row.depth
+    box = frozenset((impulse, scan_line) for impulse in impulses for scan_line in scan_lines)
+    if impulses and scan_lines:
+        bounds = (impulses[0], impulses[-1], scan_lines[0], scan_lines[-1])
+    else:
+        bounds = (0, 0, 0, 0)
+    return _DetectionContext(
+        depths=depths,
+        field_length=extent.field_length,
+        field_width=extent.field_width,
+        impulse_count=len(impulses),
+        scan_line_count=len(scan_lines),
+        bounds=bounds,
+        unmeasured=box - frozenset(depths),
+    )
+
+
+def _read_hierarchy(
+    tree: hierarchy.HierarchyData, context: _DetectionContext
+) -> document.Hierarchy:
     """Build the threshold-free hierarchy over one scan's residuals.
 
     Args:
-        remaining: The residual per measured coordinate, in original units.
+        tree: The built tree with its tallies.
+        context: The scan's depths, geometry and boundary facts.
 
     Returns:
         The component hierarchy with its detections and parent map.
     """
-    tree = hierarchy.build(remaining)
-    detections = [
-        document.Detection(
-            identity=item.identity,
-            number=item.number,
-            polarity=item.polarity,
-            birth_level=item.birth,
-            cells=[
-                document.DetectionCell(impulse=impulse, scan_line=scan_line)
-                for impulse, scan_line in item.cells
-            ],
-        )
-        for item in tree.detections
-    ]
+    detections = [_read_detection(item, context) for item in tree.detections]
     return document.Hierarchy(
         measured_cells=tree.measured_cells,
         cells_in_hierarchy=tree.cells_in_hierarchy,
@@ -897,6 +1028,21 @@ def _read_hierarchy(remaining: dict[tuple[int, int], float]) -> document.Hierarc
         levels_negative=list(tree.levels_negative),
         detections=detections,
         parents=list(tree.parents),
+        detection_counts=[
+            document.DetectionCount(
+                polarity=tally.polarity, count=tally.total, denominator=tree.measured_cells
+            )
+            for tally in tree.detection_counts
+        ],
+        component_counts=[
+            document.ComponentCount(
+                polarity=tally.polarity,
+                level=tally.level,
+                count=tally.total,
+                denominator=tree.measured_cells,
+            )
+            for tally in tree.component_counts
+        ],
     )
 
 
@@ -943,7 +1089,10 @@ def _read_scan_inner(text: str, position: int) -> document.ScanRead | document.S
         lattice=document.Lattice(impulses=impulses, scan_lines=scan_lines),
         cells=_read_cells(table.rows, remaining),
         background_model=document.BackgroundModel(),
-        hierarchy=_read_hierarchy(remaining),
+        hierarchy=_read_hierarchy(
+            hierarchy.build(remaining),
+            _detection_context(table.rows, extent, impulses, scan_lines),
+        ),
         extent=extent,
         latitude_presence=_presence(layout.latitude, has_value=table.latitude_value),
         longitude_presence=_presence(layout.longitude, has_value=table.longitude_value),

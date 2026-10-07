@@ -16,7 +16,7 @@ from typing import Annotated, Literal, NoReturn
 
 from pydantic import BaseModel, BeforeValidator, ConfigDict, Field
 
-from groundscan_analyzer import background, dialect, hierarchy
+from groundscan_analyzer import background, dialect, hierarchy, quantity_registry
 from groundscan_analyzer.property_registry import CONTRACT_VERSION, REGISTRY_VERSION
 
 
@@ -120,6 +120,23 @@ class DetectionCell(BaseModel):
     scan_line: int = Field(ge=0)
 
 
+class DepthInterval(BaseModel):
+    """A device-reported depth interval spanning the covered samples.
+
+    The minimum to the maximum over the samples carrying a device value,
+    never a point invented by aggregation, and absent where no sample
+    carries one, never zero. Evidence with a provenance, not a statement
+    that anything is at that depth, and never presented as verified
+    physical depth. Nothing is derived from travel time or soil factors.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    minimum: FiniteFloat
+    maximum: FiniteFloat
+    kind: Literal["device-reported"] = "device-reported"
+
+
 class Detection(BaseModel):
     """One node of the component hierarchy.
 
@@ -129,6 +146,10 @@ class Detection(BaseModel):
     rank, so a cell set that vanishes and later returns is a second
     detection. Numbering is presentation in lattice order starting at one
     and excluding padding, so moving or adding padding renumbers nothing.
+    Solidity, compactness, field area, depth and boundary contact are
+    carried together as pitch-invariant index-space ratios, each
+    computable where no extent was declared except field area, which is
+    withheld with its cause where it cannot be stated.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -138,6 +159,50 @@ class Detection(BaseModel):
     polarity: Literal["positive", "negative"]
     birth_level: FiniteFloat
     cells: list[DetectionCell]
+    cell_count: int = Field(ge=1)
+    solidity: FiniteFloat
+    compactness: FiniteFloat
+    field_area: FiniteOptionalFloat = None
+    field_area_withheld: Literal["requires-declared-extent", "requires-homogeneous-axes"] | None = (
+        None
+    )
+    depth: DepthInterval | None = None
+    lattice_boundary_cells: list[DetectionCell] = Field(default_factory=list)
+    padding_adjacent_cells: list[DetectionCell] = Field(default_factory=list)
+
+
+class DetectionCount(BaseModel):
+    """A detection count over one polarity with its named denominator.
+
+    No cross-polarity total is emitted and no derived ratio ships: the
+    numerator and the scan's measured cells travel together, and the
+    quotient is the consumer's.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    polarity: Literal["positive", "negative"]
+    count: int = Field(ge=0)
+    denominator: int = Field(ge=0)
+    connectivity: Literal["4-connectivity"] = hierarchy.CONNECTIVITY  # type: ignore[assignment]
+
+
+class ComponentCount(BaseModel):
+    """A component count at one level of one polarity.
+
+    The level and the connectivity convention travel with the count,
+    without which neither its bound nor its reproduction holds, with the
+    scan's measured cells as the named denominator. No cross-polarity
+    total is emitted and no derived ratio ships.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    polarity: Literal["positive", "negative"]
+    level: FiniteFloat
+    count: int = Field(ge=0)
+    denominator: int = Field(ge=0)
+    connectivity: Literal["4-connectivity"] = hierarchy.CONNECTIVITY  # type: ignore[assignment]
 
 
 class Hierarchy(BaseModel):
@@ -169,6 +234,8 @@ class Hierarchy(BaseModel):
     levels_negative: list[FiniteFloat]
     detections: list[Detection]
     parents: list[int | None]
+    detection_counts: list[DetectionCount]
+    component_counts: list[ComponentCount]
 
 
 class MetricMismatch(BaseModel):
@@ -250,6 +317,7 @@ class Document(BaseModel):
 
     contract_version: Literal[1] = CONTRACT_VERSION  # type: ignore[assignment]
     registry_version: Literal[1] = REGISTRY_VERSION  # type: ignore[assignment]
+    quantity_registry_version: Literal[1] = quantity_registry.QUANTITY_REGISTRY_VERSION  # type: ignore[assignment]
     decimal_separator: Literal["."] = dialect.DECIMAL_SEPARATOR  # type: ignore[assignment]
     convention: Literal["default-numeric-reading-v1"] = dialect.CONVENTION  # type: ignore[assignment]
     scans: list[Annotated[ScanRead | ScanRefused, Field(discriminator="status")]]

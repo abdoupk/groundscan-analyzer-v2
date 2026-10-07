@@ -127,10 +127,25 @@ def test_conformant_echo_carries_tolerance_without_mismatch() -> None:
     assert scan.metric_check.mismatches == []
 
 
-def test_depth_substitution_changes_nothing() -> None:
-    """Depth is parsed, then discarded: new values move no field."""
+def test_depth_substitution_moves_only_depth_intervals() -> None:
+    """Depth is load-bearing for intervals alone: structure stands still."""
     variant = FULL.replace("0.1000,10.0000", "9.9000,10.0000")
-    assert dumps_of(variant) == dumps_of(FULL)
+    first = read(FULL)
+    second = read(variant)
+    assert first.status == "read"
+    assert second.status == "read"
+    assert second.cells == first.cells
+    assert second.lattice == first.lattice
+    assert [d.identity for d in second.hierarchy.detections] == [
+        d.identity for d in first.hierarchy.detections
+    ]
+    assert [d.cells for d in second.hierarchy.detections] == [
+        d.cells for d in first.hierarchy.detections
+    ]
+    first_intervals = [d.depth for d in first.hierarchy.detections]
+    second_intervals = [d.depth for d in second.hierarchy.detections]
+    assert second_intervals != first_intervals
+    assert [d for d in second_intervals if d is not None] != []
 
 
 def test_discarded_presence_states_are_recorded() -> None:

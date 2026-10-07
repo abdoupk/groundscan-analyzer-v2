@@ -50,8 +50,23 @@ class DetectionData(NamedTuple):
     cells: tuple[tuple[int, int], ...]
 
 
+class PolarityTally(NamedTuple):
+    """A detection count over one polarity, never summed across both."""
+
+    polarity: Literal["positive", "negative"]
+    total: int
+
+
+class LevelTally(NamedTuple):
+    """A component count at one level of one polarity."""
+
+    polarity: Literal["positive", "negative"]
+    level: float
+    total: int
+
+
 class HierarchyData(NamedTuple):
-    """The full tree as four arrays plus its two populations."""
+    """The full tree with its populations and tallies."""
 
     measured_cells: int
     cells_in_hierarchy: int
@@ -59,6 +74,8 @@ class HierarchyData(NamedTuple):
     levels_negative: tuple[float, ...]
     detections: tuple[DetectionData, ...]
     parents: tuple[int | None, ...]
+    detection_counts: tuple[PolarityTally, ...]
+    component_counts: tuple[LevelTally, ...]
 
 
 @dataclass
@@ -426,6 +443,79 @@ def _presentation_order(nodes: list[_Node]) -> list[int]:
     )
 
 
+def _counts_at_levels(
+    positions: list[int],
+    nodes: list[_Node],
+    parents: list[int | None],
+    ordered: tuple[float, ...],
+) -> list[int]:
+    """Count the nodes alive at each level of one polarity.
+
+    Alive exactly while the cut lies at or below the birth and strictly
+    above the parent's birth, comparing level positions rather than
+    magnitudes.
+
+    Args:
+        positions: The polarity's node positions in birth order.
+        nodes: The combined nodes in birth order.
+        parents: The parent position per combined position.
+        ordered: The polarity's magnitudes most extreme first.
+
+    Returns:
+        The alive count per level, in level order.
+    """
+    index_of = {level: position for position, level in enumerate(ordered)}
+    alive: list[int] = []
+    for level_position in range(len(ordered)):
+        total = 0
+        for node_position in positions:
+            if index_of[nodes[node_position].birth] > level_position:
+                continue
+            parent = parents[node_position]
+            if parent is not None and index_of[nodes[parent].birth] <= level_position:
+                continue
+            total += 1
+        alive.append(total)
+    return alive
+
+
+def _assemble_tallies(
+    nodes: list[_Node],
+    parents: list[int | None],
+    pos_levels: tuple[float, ...],
+    neg_levels: tuple[float, ...],
+) -> tuple[tuple[PolarityTally, ...], tuple[LevelTally, ...]]:
+    """Tally detections and level counts per polarity without totals.
+
+    Args:
+        nodes: The combined nodes in birth order.
+        parents: The parent position per combined position.
+        pos_levels: The positive magnitudes most extreme first.
+        neg_levels: The negative magnitudes most extreme first.
+
+    Returns:
+        Per-polarity detection counts with per-level component counts.
+    """
+    pos_positions = [p for p, node in enumerate(nodes) if node.polarity == "positive"]
+    neg_positions = [p for p, node in enumerate(nodes) if node.polarity == "negative"]
+    detection_counts = (
+        PolarityTally("positive", len(pos_positions)),
+        PolarityTally("negative", len(neg_positions)),
+    )
+    component_counts = tuple(
+        LevelTally("positive", level, total)
+        for level, total in zip(
+            pos_levels, _counts_at_levels(pos_positions, nodes, parents, pos_levels), strict=True
+        )
+    ) + tuple(
+        LevelTally("negative", level, total)
+        for level, total in zip(
+            neg_levels, _counts_at_levels(neg_positions, nodes, parents, neg_levels), strict=True
+        )
+    )
+    return detection_counts, component_counts
+
+
 def _combined_parents(pos_nodes: list[_Node], neg_nodes: list[_Node]) -> list[int | None]:
     """Join the per-polarity parent maps with the negative block offset.
 
@@ -466,6 +556,7 @@ def _finalise(
     numbers = [0] * len(nodes)
     for number, position in enumerate(_presentation_order(nodes), start=1):
         numbers[position] = number
+    detection_counts, component_counts = _assemble_tallies(nodes, parents, pos_levels, neg_levels)
     detections: list[DetectionData] = []
     for position, node in enumerate(nodes):
         identity = f"{node.polarity}@{node.birth!r}#{ranks[position]}"
@@ -486,6 +577,8 @@ def _finalise(
         levels_negative=neg_levels,
         detections=tuple(detections),
         parents=tuple(parents),
+        detection_counts=detection_counts,
+        component_counts=component_counts,
     )
 
 
