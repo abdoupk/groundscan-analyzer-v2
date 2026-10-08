@@ -16,7 +16,7 @@ from typing import Annotated, Literal, NoReturn
 
 from pydantic import BaseModel, BeforeValidator, ConfigDict, Field
 
-from groundscan_analyzer import background, dialect, hierarchy, quantity_registry
+from groundscan_analyzer import background, dialect, frames, hierarchy, quantity_registry
 from groundscan_analyzer.property_registry import CONTRACT_VERSION, REGISTRY_VERSION
 
 
@@ -42,6 +42,8 @@ FiniteFloat = Annotated[float, BeforeValidator(_reject_non_finite)]
 FiniteOptionalFloat = Annotated[float | None, BeforeValidator(_reject_non_finite)]
 
 WithheldReason = Literal["requires-declared-extent", "requires-homogeneous-axes"]
+
+NoSharedReason = Literal["missing-orientation-path", "withdrawn-component"]
 
 RefusalReason = Literal[
     "unknown-column-name",
@@ -247,6 +249,128 @@ class Detection(BaseModel):
     depth: DepthInterval | None = None
     lattice_boundary_cells: list[DetectionCell] = Field(default_factory=list)
     padding_adjacent_cells: list[DetectionCell] = Field(default_factory=list)
+    scan_payload_hash: str
+    shared_frame_position: SharedFramePosition | None
+    no_shared_position_reason: NoSharedReason | None = None
+
+
+class SharedScale(BaseModel):
+    """One shared-frame axis pitch with the declaration behind it.
+
+    The quotient with the declaring scan's payload identity and the
+    declared span that supplied it, so a reader can see which
+    declaration to distrust. Foreign scales may fractionalise the
+    metric without ever touching the index expression.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    quotient: FiniteFloat
+    declaration_scan: str
+    declaration_span: Literal["Field Length", "Field Width"]
+    provenance: Literal["engine-constructed"] = "engine-constructed"
+
+
+class SharedFrameAxis(BaseModel):
+    """One shared-frame axis: index expression with its scale."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: Literal["along-line", "across-lines"]
+    index: FiniteFloat
+    scale: SharedScale | None = None
+
+
+class SharedFramePosition(BaseModel):
+    """A detection re-expressed in its shared frame, never replacing.
+
+    Derived, never canonical: it retains the scan-local position it came
+    from. The frame index pair may be half-integral from center rotation
+    on even lattices, which is exact in binary64 and never a rounding:
+    halves are positions, not a unit violation, so they never move the
+    homogeneity flag. Homogeneity is a stated property of the scale
+    pair, never a withheld state: no metric distance is stated across
+    axes that are not one unit.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    frame: str
+    origin: Literal["operator-marked-starting-point"]
+    origin_limitation: Literal["origin-unverifiable-and-unlocatable"]
+    scan_local: ScanLocalPosition
+    along_line: SharedFrameAxis
+    across_lines: SharedFrameAxis
+    homogeneous: bool | None = None
+
+
+class DeclaredRelation(BaseModel):
+    """One operator declaration over sorted intake positions, verbatim."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    first: int = Field(ge=0)
+    second: int = Field(ge=0)
+    relation: Literal["same", "opposite", "90-clockwise", "90-counter-clockwise"]
+
+
+class FrameRelation(BaseModel):
+    """One member scan with its class from the canonical reference."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    scan: int = Field(ge=0)
+    relation_class: int = Field(ge=0, le=3)
+
+
+class Frame(BaseModel):
+    """One viable shared frame: hash name, label and membership.
+
+    Named after its canonical reference, unintelligible because a hash
+    chose it, with a human-readable label beside it that never
+    participates in selection. Each scan's measurements stay in its own
+    lattice: the frame relates them without combining a single cell.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str
+    label: str
+    members: list[int]
+    relations: list[FrameRelation]
+
+
+class Contradiction(BaseModel):
+    """One declared edge whose cycle fails to close, in canonical order."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    first: int = Field(ge=0)
+    second: int = Field(ge=0)
+    relation: Literal["same", "opposite", "90-clockwise", "90-counter-clockwise"]
+    expected_class: int = Field(ge=0, le=3)
+    declared_class: int = Field(ge=0, le=3)
+
+
+class AspectVerdict(BaseModel):
+    """One long-short verdict over a declared relation, never a gate.
+
+    An even relation expects both lattices long on the same axis; an odd
+    relation expects the roles exchanged. Either structurally square
+    endpoint is not-informative, decided by structural equality rather
+    than tolerance. The check cannot tell clockwise from
+    counter-clockwise, and that inability travels with every verdict.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    first: int = Field(ge=0)
+    second: int = Field(ge=0)
+    relation: Literal["same", "opposite", "90-clockwise", "90-counter-clockwise"]
+    verdict: Literal["consistent", "contradictory", "not-informative"]
+    note: Literal["cannot-distinguish-clockwise-from-counter-clockwise"] = (
+        "cannot-distinguish-clockwise-from-counter-clockwise"
+    )
 
 
 class DetectionCount(BaseModel):
@@ -377,6 +501,8 @@ class ScanRead(BaseModel):
     latitude_presence: PresenceState
     longitude_presence: PresenceState
     line_order: Literal["absent-from-export"] = "absent-from-export"
+    payload_hash: str
+    aspect_checks: list[AspectVerdict] = Field(default_factory=list)
     metric_check: MetricCheck
     discrepancies: list[Discrepancy]
 
@@ -400,10 +526,14 @@ class Document(BaseModel):
 
     contract_version: Literal[1] = CONTRACT_VERSION  # type: ignore[assignment]
     registry_version: Literal[1] = REGISTRY_VERSION  # type: ignore[assignment]
-    quantity_registry_version: Literal[2] = quantity_registry.QUANTITY_REGISTRY_VERSION  # type: ignore[assignment]
+    quantity_registry_version: Literal[3] = quantity_registry.QUANTITY_REGISTRY_VERSION  # type: ignore[assignment]
     decimal_separator: Literal["."] = dialect.DECIMAL_SEPARATOR  # type: ignore[assignment]
     convention: Literal["default-numeric-reading-v1"] = dialect.CONVENTION  # type: ignore[assignment]
+    payload_encoding_version: Literal["payload-encoding-v1"] = frames.PAYLOAD_ENCODING  # type: ignore[assignment]
     scans: list[Annotated[ScanRead | ScanRefused, Field(discriminator="status")]]
+    declared_relations: list[DeclaredRelation] = Field(default_factory=list)
+    frames: list[Frame] = Field(default_factory=list)
+    contradictions: list[Contradiction] = Field(default_factory=list)
 
 
 def dumps(doc: Document) -> str:

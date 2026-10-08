@@ -23,7 +23,7 @@ from typing import TYPE_CHECKING, NamedTuple
 if TYPE_CHECKING:
     from typing import Final
 
-QUANTITY_REGISTRY_VERSION: Final[int] = 2
+QUANTITY_REGISTRY_VERSION: Final[int] = 3
 
 
 class QuantityEntry(NamedTuple):
@@ -193,5 +193,21 @@ QUANTITIES: Final[tuple[QuantityEntry, ...]] = (
         upper=None,
         upper_inclusive=True,
         owner="groundscan_analyzer.positions",
+    ),
+    QuantityEntry(
+        name="shared-frame-position",
+        definition="A detection re-expressed in its shared frame with its "
+        "scan-local position retained.",
+        derivation="Quarter-turn rows from the versioned mapping table "
+        "about the scan center into the reference center, with scales "
+        "from the contributing scan's own declaration, swapped across "
+        "odd relations.",
+        unit="declared-unit",
+        population="detection representative cell",
+        lower=None,
+        lower_inclusive=True,
+        upper=None,
+        upper_inclusive=True,
+        owner="groundscan_analyzer.frames",
     ),
 )

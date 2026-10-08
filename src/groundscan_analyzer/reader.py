@@ -19,6 +19,7 @@ from groundscan_analyzer import (
     descriptors,
     dialect,
     document,
+    frames,
     hierarchy,
     input_contract,
     positions,
@@ -846,6 +847,22 @@ def _presence(column: int | None, *, has_value: bool) -> document.PresenceState:
     return "present-but-empty"
 
 
+def _measured_responses(rows: list[_Row]) -> dict[tuple[int, int], float]:
+    """Collect measured responses keyed by lattice coordinate.
+
+    Args:
+        rows: The accepted rows in file order.
+
+    Returns:
+        Responses over measured cells only, padding excluded.
+    """
+    measured: dict[tuple[int, int], float] = {}
+    for row in rows:
+        if row.response is not None:
+            measured[row.impulse, row.scan_line] = row.response
+    return measured
+
+
 def _residual_map(rows: list[_Row]) -> dict[tuple[int, int], float]:
     """Reduce the measured responses to residuals under the pinned background.
 
@@ -855,11 +872,7 @@ def _residual_map(rows: list[_Row]) -> dict[tuple[int, int], float]:
     Returns:
         The residual per measured coordinate, in original units.
     """
-    measured: dict[tuple[int, int], float] = {}
-    for row in rows:
-        if row.response is not None:
-            measured[row.impulse, row.scan_line] = row.response
-    return background.residuals(measured)
+    return background.residuals(_measured_responses(rows))
 
 
 def _read_cells(rows: list[_Row], remaining: dict[tuple[int, int], float]) -> list[document.Cell]:
@@ -893,6 +906,7 @@ class _DetectionContext(NamedTuple):
     scan_line_count: int
     bounds: tuple[int, int, int, int]
     unmeasured: frozenset[tuple[int, int]]
+    payload_hash: str
 
 
 def _sample_depths(
@@ -1047,6 +1061,9 @@ def _read_detection(
         ),
         lattice_boundary_cells=_to_cells(boundary),
         padding_adjacent_cells=_to_cells(adjacent),
+        scan_payload_hash=context.payload_hash,
+        shared_frame_position=None,
+        no_shared_position_reason="missing-orientation-path",
     )
 
 
@@ -1084,6 +1101,7 @@ def _detection_context(
         scan_line_count=len(scan_lines),
         bounds=bounds,
         unmeasured=box - frozenset(depths),
+        payload_hash=frames.payload_hash(_measured_responses(rows)),
     )
 
 
@@ -1156,10 +1174,10 @@ def _read_scan_inner(text: str, position: int) -> document.ScanRead | document.S
         first = table.issues[0]
         detail = f"{len(table.issues)} failing rows, first at line {first.line}"
         raise _RefusalError(first.reason, detail, tuple(table.issues))
-    metric_check = _check_metrics(table.rows, extent)
     impulses = sorted({row.impulse for row in table.rows})
     scan_lines = sorted({row.scan_line for row in table.rows})
     remaining = _residual_map(table.rows)
+    context = _detection_context(table.rows, extent, impulses, scan_lines)
     return document.ScanRead(
         status="read",
         position=position,
@@ -1168,14 +1186,12 @@ def _read_scan_inner(text: str, position: int) -> document.ScanRead | document.S
         lattice=document.Lattice(impulses=impulses, scan_lines=scan_lines),
         cells=_read_cells(table.rows, remaining),
         background_model=document.BackgroundModel(),
-        hierarchy=_read_hierarchy(
-            hierarchy.build(remaining),
-            _detection_context(table.rows, extent, impulses, scan_lines),
-        ),
+        hierarchy=_read_hierarchy(hierarchy.build(remaining), context),
         extent=extent,
         latitude_presence=_presence(layout.latitude, has_value=table.latitude_value),
         longitude_presence=_presence(layout.longitude, has_value=table.longitude_value),
-        metric_check=metric_check,
+        payload_hash=context.payload_hash,
+        metric_check=_check_metrics(table.rows, extent),
         discrepancies=_discrepancies(impulses, scan_lines, table.rows, table.short_lines),
     )
 
@@ -1212,22 +1228,295 @@ def _read_scan(text: str, position: int) -> document.ScanRead | document.ScanRef
         )
 
 
-def read_document(contents: Sequence[bytes]) -> document.Document:
+def _scan_center(scan: document.ScanRead) -> tuple[float, float]:
+    """Return one lattice center as index halves, exact in binary64.
+
+    Args:
+        scan: The read scan record.
+
+    Returns:
+        The impulse and scan-line midpoints.
+    """
+    impulses = scan.lattice.impulses
+    lines = scan.lattice.scan_lines
+    return frames.center_of_bounds(impulses[0], impulses[-1], lines[0], lines[-1])
+
+
+def _shared_pitches(scan: document.ScanRead) -> tuple[float | None, float | None]:
+    """Read one scan's pitches where definable, else absence per axis.
+
+    Args:
+        scan: The read scan record.
+
+    Returns:
+        Along-line with across-lines pitch, None where indefinable.
+    """
+    length = scan.extent.field_length
+    width = scan.extent.field_width
+    impulse_count = len(scan.lattice.impulses)
+    line_count = len(scan.lattice.scan_lines)
+    pitch_x = (
+        positions.pitch_span(length, impulse_count)
+        if length is not None and impulse_count >= positions.MIN_PITCH_COUNT
+        else None
+    )
+    pitch_y = (
+        positions.pitch_span(width, line_count)
+        if width is not None and line_count >= positions.MIN_PITCH_COUNT
+        else None
+    )
+    return pitch_x, pitch_y
+
+
+def _shared_position(
+    detection: document.Detection,
+    scan: document.ScanRead,
+    state: frames.ScanState,
+    centers: dict[str, tuple[float, float]],
+) -> tuple[document.SharedFramePosition | None, document.NoSharedReason | None]:
+    """Express one detection in its shared frame, or name the cause.
+
+    Scales come from the contributing scan's own declaration, swapped
+    across odd relations, each recording which declaration supplied it.
+
+    Args:
+        detection: The detection with its scan-local position.
+        scan: The contributing read scan record.
+        state: The scan's frame outcome with its class.
+        centers: Lattice centers keyed by frame name.
+
+    Returns:
+        The shared position with no reason, or no position with the
+        missing-path or withdrawn-component cause.
+    """
+    if state.kind == "withdrawn":
+        return None, "withdrawn-component"
+    if state.frame is None or state.relation_class is None:
+        return None, "missing-orientation-path"
+    cell = detection.cells[0]
+    along, across = frames.express(
+        state.relation_class,
+        _scan_center(scan),
+        centers[state.frame],
+        cell.impulse,
+        cell.scan_line,
+    )
+    pitch_x, pitch_y = _shared_pitches(scan)
+    spans: tuple[
+        tuple[float | None, Literal["Field Length", "Field Width"]],
+        tuple[float | None, Literal["Field Length", "Field Width"]],
+    ]
+    if frames.is_even_class(state.relation_class):
+        spans = ((pitch_x, "Field Length"), (pitch_y, "Field Width"))
+    else:
+        spans = ((pitch_y, "Field Width"), (pitch_x, "Field Length"))
+    (first, first_span), (second, second_span) = spans
+    return document.SharedFramePosition(
+        frame=state.frame,
+        origin="operator-marked-starting-point",
+        origin_limitation="origin-unverifiable-and-unlocatable",
+        scan_local=detection.scan_local_position,
+        along_line=document.SharedFrameAxis(
+            name="along-line",
+            index=along,
+            scale=(
+                document.SharedScale(
+                    quotient=first,
+                    declaration_scan=scan.payload_hash,
+                    declaration_span=first_span,
+                )
+                if first is not None
+                else None
+            ),
+        ),
+        across_lines=document.SharedFrameAxis(
+            name="across-lines",
+            index=across,
+            scale=(
+                document.SharedScale(
+                    quotient=second,
+                    declaration_scan=scan.payload_hash,
+                    declaration_span=second_span,
+                )
+                if second is not None
+                else None
+            ),
+        ),
+        homogeneous=(
+            positions.same_pitch(first, second)
+            if first is not None and second is not None
+            else None
+        ),
+    ), None
+
+
+def _frame_inputs(
+    scans: list[document.ScanRead | document.ScanRefused],
+) -> list[frames.ScanFrame | None]:
+    """Collect frame inputs per intake position, None where refused.
+
+    Args:
+        scans: The read or refused scan records in intake order.
+
+    Returns:
+        Frame inputs aligned with intake positions.
+    """
+    inputs: list[frames.ScanFrame | None] = []
+    for scan in scans:
+        if scan.status != "read":
+            inputs.append(None)
+            continue
+        impulses = scan.lattice.impulses
+        lines = scan.lattice.scan_lines
+        if impulses and lines:
+            bounds = (impulses[0], impulses[-1], lines[0], lines[-1])
+        else:
+            bounds = (0, 0, 0, 0)
+        inputs.append(
+            frames.ScanFrame(
+                scan.payload_hash,
+                bounds[0],
+                bounds[1],
+                bounds[2],
+                bounds[3],
+                len(impulses),
+                len(lines),
+            )
+        )
+    return inputs
+
+
+def _rebuild_detection(
+    detection: document.Detection,
+    scan: document.ScanRead,
+    tree: frames.FramesData,
+) -> document.Detection:
+    """Rebuild one detection carrying its shared-frame expression.
+
+    Args:
+        detection: The phase-one detection with local facts only.
+        scan: The contributing read scan record.
+        tree: The built frames with per-scan states.
+
+    Returns:
+        The detection with its shared position or its named cause.
+    """
+    state = tree.states[scan.position]
+    shared, reason = _shared_position(detection, scan, state, tree.centers)
+    return document.Detection(**{
+        **detection.model_dump(),
+        "shared_frame_position": shared,
+        "no_shared_position_reason": reason,
+    })
+
+
+def _rebuild_scan(
+    scan: document.ScanRead | document.ScanRefused,
+    tree: frames.FramesData,
+) -> document.ScanRead | document.ScanRefused:
+    """Rebuild one scan carrying shared positions and aspect verdicts.
+
+    Args:
+        scan: The read or refused scan record.
+        tree: The built frames with per-scan states.
+
+    Returns:
+        The scan with frame branches attached, refusals untouched.
+    """
+    if scan.status != "read":
+        return scan
+    detections = [_rebuild_detection(item, scan, tree) for item in scan.hierarchy.detections]
+    aspects = [
+        document.AspectVerdict(
+            first=verdict.first,
+            second=verdict.second,
+            relation=verdict.word,  # type: ignore[arg-type]
+            verdict=verdict.verdict,
+        )
+        for verdict in tree.aspects
+        if scan.position in {verdict.first, verdict.second}
+    ]
+    hierarchy = document.Hierarchy(**{**scan.hierarchy.model_dump(), "detections": detections})
+    return document.ScanRead(**{
+        **scan.model_dump(),
+        "hierarchy": hierarchy,
+        "aspect_checks": aspects,
+    })
+
+
+def _attach_frames(
+    scans: list[document.ScanRead | document.ScanRefused],
+    relations: Sequence[frames.Relation],
+) -> document.Document:
+    """Relate whole lattices into shared frames without merging any.
+
+    Args:
+        scans: The read or refused scan records in intake order.
+        relations: Declared relations over intake positions.
+
+    Returns:
+        The survey document with frames, echoes and contradictions.
+    """
+    tree = frames.build_frames(_frame_inputs(scans), relations)
+    return document.Document(
+        scans=[_rebuild_scan(scan, tree) for scan in scans],
+        declared_relations=[
+            document.DeclaredRelation(first=edge.first, second=edge.second, relation=edge.word)  # type: ignore[arg-type]
+            for edge in tree.declared
+        ],
+        frames=[
+            document.Frame(
+                name=frame.name,
+                label=frame.label,
+                members=list(frame.members),
+                relations=[
+                    document.FrameRelation(scan=member.scan, relation_class=member.relation_class)
+                    for member in frame.relations
+                ],
+            )
+            for frame in tree.frames
+        ],
+        contradictions=[
+            document.Contradiction(
+                first=found.first,
+                second=found.second,
+                relation=found.word,  # type: ignore[arg-type]
+                expected_class=found.expected_class,
+                declared_class=found.declared_class,
+            )
+            for found in tree.contradictions
+        ],
+    )
+
+
+def read_document(
+    contents: Sequence[bytes], relations: Sequence[frames.Relation] = ()
+) -> document.Document:
     """Read named exports in intake order to one survey document.
 
     One bad scan among several refuses only that scan. A file that cannot
     be decoded at all, or whose delimiter collides with the assumed decimal
-    separator, stops the run instead.
+    separator, stops the run instead. Declared relations over sorted
+    intake positions relate whole lattices into shared frames. Positions
+    index the sorted intake from zero with exact words, never repaired
+    into a neighbour; a self-loop constrains uniformly like any edge.
 
     Args:
         contents: The raw export bytes in sorted intake order.
+        relations: Declared relations over intake positions.
 
     Returns:
         The survey document recording what was read and what was refused.
 
     Raises:
         UndecodableInputError: When a file cannot be decoded at all.
+        ValueError: On an out-of-range position or an unknown word.
     """
+    for relation in relations:
+        frames.word_to_class(relation.word)
+        if not 0 <= relation.first < len(contents) or not 0 <= relation.second < len(contents):
+            msg = f"relation names no scan: {relation!r}"
+            raise ValueError(msg)
     scans: list[document.ScanRead | document.ScanRefused] = []
     for position, content in enumerate(contents):
         try:
@@ -1236,4 +1525,4 @@ def read_document(contents: Sequence[bytes]) -> document.Document:
             msg = f"scan {position} cannot be decoded as text"
             raise UndecodableInputError(msg) from exc
         scans.append(_read_scan(text, position))
-    return document.Document(scans=scans)
+    return _attach_frames(scans, relations)

@@ -104,7 +104,8 @@ def test_no_level_enters_the_engine_as_input() -> None:
     assert not hasattr(tree, "DEFAULT_THRESHOLD")
     assert not hasattr(tree, "THRESHOLD")
     reader_params = list(inspect.signature(reader.read_document).parameters)
-    assert reader_params == ["contents"]
+    # Relations are operator assertions, never levels or thresholds.
+    assert reader_params == ["contents", "relations"]
 
 
 def test_levels_partition_polarity() -> None:

@@ -1,11 +1,16 @@
 {
   "contract_version": 1,
+  "contradictions": [],
   "convention": "default-numeric-reading-v1",
   "decimal_separator": ".",
-  "quantity_registry_version": 2,
+  "declared_relations": [],
+  "frames": [],
+  "payload_encoding_version": "payload-encoding-v1",
+  "quantity_registry_version": 3,
   "registry_version": 1,
   "scans": [
     {
+      "aspect_checks": [],
       "background_model": {
         "combination": "median",
         "convention": "background-model-v1",
@@ -169,6 +174,7 @@
               }
             ],
             "no_field_position_reason": null,
+            "no_shared_position_reason": "missing-orientation-path",
             "number": 2,
             "padding_adjacent_cells": [],
             "polarity": "positive",
@@ -187,6 +193,8 @@
               "origin": "operator-marked-starting-point",
               "origin_limitation": "origin-unverifiable-and-unlocatable"
             },
+            "scan_payload_hash": "b500cdc92d5a205eb5126cb522be5110d347f0ef4ace21e2b2aa8db807df4c4f",
+            "shared_frame_position": null,
             "solidity": 1.0
           },
           {
@@ -251,6 +259,7 @@
               }
             ],
             "no_field_position_reason": null,
+            "no_shared_position_reason": "missing-orientation-path",
             "number": 1,
             "padding_adjacent_cells": [],
             "polarity": "negative",
@@ -269,6 +278,8 @@
               "origin": "operator-marked-starting-point",
               "origin_limitation": "origin-unverifiable-and-unlocatable"
             },
+            "scan_payload_hash": "b500cdc92d5a205eb5126cb522be5110d347f0ef4ace21e2b2aa8db807df4c4f",
+            "shared_frame_position": null,
             "solidity": 1.0
           }
         ],
@@ -305,6 +316,7 @@
         "mismatches": [],
         "tolerance": 5e-05
       },
+      "payload_hash": "b500cdc92d5a205eb5126cb522be5110d347f0ef4ace21e2b2aa8db807df4c4f",
       "position": 0,
       "sections": [
         "Characteristics",

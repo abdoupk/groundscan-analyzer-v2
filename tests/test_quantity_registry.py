@@ -21,6 +21,10 @@ FieldRef = tuple[str, str]
 def field_kinds() -> dict[FieldRef, str | None]:
     """Classify every record field as a quantity name or structural.
 
+    Identity facts, withheld reasons, frame scaffolding and guard
+    verdicts are structural here: guards live in the property world,
+    while this registry holds analysis quantities and positions.
+
     Returns:
         Quantity name per quantity field, None per structural field.
     """
@@ -41,6 +45,9 @@ def field_kinds() -> dict[FieldRef, str | None]:
         ("Detection", "depth"): "depth-interval",
         ("Detection", "lattice_boundary_cells"): "lattice-boundary-contact",
         ("Detection", "padding_adjacent_cells"): "padding-adjacency-contact",
+        ("Detection", "scan_payload_hash"): None,
+        ("Detection", "shared_frame_position"): "shared-frame-position",
+        ("Detection", "no_shared_position_reason"): None,
         ("Hierarchy", "connectivity"): None,
         ("Hierarchy", "level_kind"): None,
         ("Hierarchy", "cut_guarantee"): None,
@@ -86,6 +93,39 @@ def field_kinds() -> dict[FieldRef, str | None]:
         ("FieldPosition", "origin_limitation"): "field-position",
         ("FieldPosition", "along_line"): "field-position",
         ("FieldPosition", "across_lines"): "field-position",
+        ("SharedScale", "quotient"): "shared-frame-position",
+        ("SharedScale", "declaration_scan"): "shared-frame-position",
+        ("SharedScale", "declaration_span"): "shared-frame-position",
+        ("SharedScale", "provenance"): "shared-frame-position",
+        ("SharedFrameAxis", "name"): "shared-frame-position",
+        ("SharedFrameAxis", "index"): "shared-frame-position",
+        ("SharedFrameAxis", "scale"): "shared-frame-position",
+        ("SharedFramePosition", "frame"): "shared-frame-position",
+        ("SharedFramePosition", "origin"): "shared-frame-position",
+        ("SharedFramePosition", "origin_limitation"): "shared-frame-position",
+        ("SharedFramePosition", "scan_local"): "scan-local-position",
+        ("SharedFramePosition", "along_line"): "shared-frame-position",
+        ("SharedFramePosition", "across_lines"): "shared-frame-position",
+        ("SharedFramePosition", "homogeneous"): "shared-frame-position",
+        ("DeclaredRelation", "first"): None,
+        ("DeclaredRelation", "second"): None,
+        ("DeclaredRelation", "relation"): None,
+        ("FrameRelation", "scan"): None,
+        ("FrameRelation", "relation_class"): None,
+        ("Frame", "name"): None,
+        ("Frame", "label"): None,
+        ("Frame", "members"): None,
+        ("Frame", "relations"): None,
+        ("Contradiction", "first"): None,
+        ("Contradiction", "second"): None,
+        ("Contradiction", "relation"): None,
+        ("Contradiction", "expected_class"): None,
+        ("Contradiction", "declared_class"): None,
+        ("AspectVerdict", "first"): None,
+        ("AspectVerdict", "second"): None,
+        ("AspectVerdict", "relation"): None,
+        ("AspectVerdict", "verdict"): None,
+        ("AspectVerdict", "note"): None,
     }
     models: dict[str, type[BaseModel]] = {
         "Detection": document.Detection,
@@ -98,6 +138,14 @@ def field_kinds() -> dict[FieldRef, str | None]:
         "ScanLocalPosition": document.ScanLocalPosition,
         "FieldAxis": document.FieldAxis,
         "FieldPosition": document.FieldPosition,
+        "SharedScale": document.SharedScale,
+        "SharedFrameAxis": document.SharedFrameAxis,
+        "SharedFramePosition": document.SharedFramePosition,
+        "DeclaredRelation": document.DeclaredRelation,
+        "FrameRelation": document.FrameRelation,
+        "Frame": document.Frame,
+        "Contradiction": document.Contradiction,
+        "AspectVerdict": document.AspectVerdict,
     }
     seen = {(name, field) for name, model in models.items() for field in model.model_fields}
     assert seen == set(kinds), f"unclassified record fields: {seen ^ set(kinds)}"
@@ -106,10 +154,10 @@ def field_kinds() -> dict[FieldRef, str | None]:
 
 def test_registry_is_versioned_and_closed() -> None:
     """One version, unique names, unique owners per quantity."""
-    assert quantity_registry.QUANTITY_REGISTRY_VERSION == 2
+    assert quantity_registry.QUANTITY_REGISTRY_VERSION == 3
     names = [entry.name for entry in quantity_registry.QUANTITIES]
     assert len(names) == len(set(names))
-    assert len(names) == 11
+    assert len(names) == 12
 
 
 def test_every_quantity_has_exactly_one_entry() -> None:
