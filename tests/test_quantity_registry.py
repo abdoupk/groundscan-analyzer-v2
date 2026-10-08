@@ -21,8 +21,9 @@ FieldRef = tuple[str, str]
 def field_kinds() -> dict[FieldRef, str | None]:
     """Classify every record field as a quantity name or structural.
 
-    Identity facts, withheld reasons, frame scaffolding and guard
-    verdicts are structural here: guards live in the property world,
+    Identity facts, withheld reasons, frame scaffolding, guard
+    verdicts and declared bounds are structural here: guards live in the
+    property world, bounds are declarations rather than measurements,
     while this registry holds analysis quantities and positions.
 
     Returns:
@@ -140,6 +141,21 @@ def field_kinds() -> dict[FieldRef, str | None]:
         ("ScaleNormalisedView", "scale"): "robust-scale",
         ("ScaleNormalisedView", "levels_positive"): "scale-normalised-level",
         ("ScaleNormalisedView", "levels_negative"): "scale-normalised-level",
+        ("PerturbationBound", "amplitude"): None,
+        ("PerturbationBound", "boundedness"): None,
+        ("PerturbationBound", "anchor"): None,
+        ("DisplacementBound", "amplitude"): None,
+        ("DisplacementBound", "boundedness"): None,
+        ("MaskInvariance", "status"): None,
+        ("MaskInvariance", "reason"): None,
+        ("MaskInvariance", "anchor_rule"): None,
+        ("MaskInvariance", "background_convention"): None,
+        ("MaskInvariance", "precondition"): None,
+        ("MaskInvariance", "zero_bound_condition"): None,
+        ("MaskInvariance", "sufficiency"): None,
+        ("MaskInvariance", "conservativeness"): None,
+        ("MaskInvariance", "ordering_invariance"): None,
+        ("MaskInvariance", "magnitude_invariance"): None,
     }
     models: dict[str, type[BaseModel]] = {
         "Detection": document.Detection,
@@ -162,6 +178,9 @@ def field_kinds() -> dict[FieldRef, str | None]:
         "AspectVerdict": document.AspectVerdict,
         "RobustScale": document.RobustScale,
         "ScaleNormalisedView": document.ScaleNormalisedView,
+        "PerturbationBound": document.PerturbationBound,
+        "DisplacementBound": document.DisplacementBound,
+        "MaskInvariance": document.MaskInvariance,
     }
     seen = {(name, field) for name, model in models.items() for field in model.model_fields}
     assert seen == set(kinds), f"unclassified record fields: {seen ^ set(kinds)}"

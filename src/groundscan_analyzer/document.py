@@ -17,6 +17,7 @@ from typing import Annotated, Literal, NoReturn
 from pydantic import BaseModel, BeforeValidator, ConfigDict, Field
 
 from groundscan_analyzer import background, dialect, frames, hierarchy, quantity_registry
+from groundscan_analyzer import perturbation as perturbation_module
 from groundscan_analyzer import scale as scale_module
 from groundscan_analyzer.property_registry import CONTRACT_VERSION, REGISTRY_VERSION
 
@@ -41,6 +42,23 @@ def _reject_non_finite[T](value: T) -> T:
 
 FiniteFloat = Annotated[float, BeforeValidator(_reject_non_finite)]
 FiniteOptionalFloat = Annotated[float | None, BeforeValidator(_reject_non_finite)]
+
+
+def _positive_zero(value: float) -> float:
+    """Canonicalise negative zero to positive zero, letting all else through.
+
+    Args:
+        value: The candidate amplitude before coercion.
+
+    Returns:
+        Positive zero where the value compares equal to zero, else unchanged.
+    """
+    if value == 0:
+        return 0.0
+    return value
+
+
+BoundAmplitude = Annotated[FiniteFloat, BeforeValidator(_positive_zero)]
 
 WithheldReason = Literal["requires-declared-extent", "requires-homogeneous-axes"]
 
@@ -528,6 +546,76 @@ class ScaleNormalisedView(BaseModel):
     levels_negative: list[FiniteFloat] | None = None
 
 
+class PerturbationBound(BaseModel):
+    """What was perturbed and under what rule: amplitude, class and anchor.
+
+    The declaration the guard reads, carried per scan in scan context because
+    the guard's precondition is per-scan. Never a protocol identifier: no
+    instrument is named anywhere on this record, and nothing in the contract
+    reads an anchor from anywhere else. The amplitude and its anchor live
+    here alone: any record citing them cites this one rather than restating
+    them.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    amplitude: BoundAmplitude = Field(ge=0)
+    boundedness: perturbation_module.Boundedness
+    anchor: perturbation_module.Anchor
+
+
+class DisplacementBound(BaseModel):
+    """The amplitude a registration check compares against, and its class.
+
+    A distinct term from the field perturbation bound, perturbing candidate
+    positions rather than a field. It rides on the scoring computation
+    behind registration rather than on the background model, so one term
+    covering both would let a reader who declared one believe they had
+    declared the other. Its guard arrives with that check; this record only
+    declares it, and the declaration alone moves no guard.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    amplitude: BoundAmplitude = Field(ge=0)
+    boundedness: perturbation_module.Boundedness
+
+
+class MaskInvariance(BaseModel):
+    """Whether a declared bounded perturbation could change any thresholded set.
+
+    Decided from the computation, never measured: where every finite
+    measured cell's distance to every threshold of every compared level
+    exceeds the effective amplitude, no cell can cross a threshold and every
+    derived quantity is identical. Sufficient and not necessary, and
+    not-guaranteed is never instability: genuinely invariant fields routinely
+    read not-guaranteed, because the criterion is conservative.
+
+    The two conventions producing the effective amplitude travel here, named
+    and versioned, while the amplitude itself never does: it is an input to
+    the decision, not a result. The precondition and the zero bound are
+    complementary, not alternatives: the guard requires a positive effective
+    amplitude, and the zero bound is what fails it. Ordering and magnitude
+    invariance are corollaries holding only beside an invariant verdict on a
+    bounded draw, never content of their own.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    status: perturbation_module.GuardStatus
+    reason: perturbation_module.GuardReason | None = None
+    anchor_rule: Literal["anchor-rule-v1"] = perturbation_module.CONVENTION  # type: ignore[assignment]
+    background_convention: Literal["background-model-v1"] = background.CONVENTION  # type: ignore[assignment]
+    precondition: Literal["effective-amplitude-positive"] = "effective-amplitude-positive"
+    zero_bound_condition: Literal["effective-amplitude-positive"] = "effective-amplitude-positive"
+    sufficiency: Literal["sufficient-and-not-necessary"] = "sufficient-and-not-necessary"
+    conservativeness: Literal["genuinely-invariant-fields-may-read-not-guaranteed"] = (
+        "genuinely-invariant-fields-may-read-not-guaranteed"
+    )
+    ordering_invariance: perturbation_module.Corollary
+    magnitude_invariance: perturbation_module.Corollary
+
+
 class ScanRead(BaseModel):
     """A scan the contract accepted, carrying its lattice and responses.
 
@@ -546,6 +634,9 @@ class ScanRead(BaseModel):
     background_model: BackgroundModel
     robust_scale: RobustScale
     scale_normalised_view: ScaleNormalisedView
+    perturbation_bound: PerturbationBound | None = None
+    displacement_bound: DisplacementBound | None = None
+    mask_invariance: MaskInvariance
     hierarchy: Hierarchy
     extent: Extent
     latitude_presence: PresenceState

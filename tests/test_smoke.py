@@ -383,3 +383,211 @@ def test_help_text_carries_no_reporting_wiring(
     text = capsys.readouterr().out.lower()
     for token in ("report", "markdown", "json", "harness", "orchestrat", "structured"):
         assert token not in text
+
+
+def test_scan_declared_perturbation_reaches_the_guard(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A declared field bound decides the guard instead of withholding it."""
+    token = write_export(tmp_path)
+    assert main(["scan", token, "--perturbation", "0.25,residual,bounded"]) == 0
+    scan = document.loads(capsys.readouterr().out).scans[0]
+    assert scan.status == "read"
+    assert scan.perturbation_bound is not None
+    assert bits(scan.perturbation_bound.amplitude) == bits(0.25)
+    assert scan.perturbation_bound.anchor == "residual"
+    assert scan.mask_invariance.status == "not-guaranteed"
+
+
+def test_scan_unbounded_draw_withholds_the_guard(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """An unbounded draw declared on the command line withholds the guard."""
+    token = write_export(tmp_path)
+    assert main(["scan", token, "--perturbation", "0.25,residual,unbounded"]) == 0
+    scan = document.loads(capsys.readouterr().out).scans[0]
+    assert scan.status == "read"
+    assert scan.mask_invariance.status == "not-emitted"
+    assert scan.mask_invariance.reason == "requires-bounded-perturbation"
+
+
+def test_scan_declared_displacement_moves_no_guard(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A declared displacement bound is carried while the guard stays silent."""
+    token = write_export(tmp_path)
+    assert main(["scan", token, "--displacement", "0.5,bounded"]) == 0
+    scan = document.loads(capsys.readouterr().out).scans[0]
+    assert scan.status == "read"
+    assert scan.displacement_bound is not None
+    assert scan.perturbation_bound is None
+    assert scan.mask_invariance.reason == "requires-recorded-perturbation-bound"
+
+
+@pytest.mark.parametrize(
+    "flag",
+    [
+        "0.25",
+        "0.25,residual",
+        "abc,residual,bounded",
+        "-1.0,residual,bounded",
+        "nan,residual,bounded",
+        "0.25,middle,bounded",
+        "0.25,residual,sometimes",
+    ],
+)
+def test_scan_malformed_perturbation_is_misuse(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], flag: str
+) -> None:
+    """A bound the vocabulary cannot read is misuse: usage on stderr, no document."""
+    token = write_export(tmp_path)
+    with pytest.raises(SystemExit) as excinfo:
+        main(["scan", token, "--perturbation", flag])
+    assert excinfo.value.code != 0
+    captured = capsys.readouterr()
+    assert not captured.out
+    assert "usage" in captured.err.lower()
+
+
+@pytest.mark.parametrize("flag", ["0.5", "abc,bounded", "-0.5,bounded", "0.5,sometimes"])
+def test_scan_malformed_displacement_is_misuse(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], flag: str
+) -> None:
+    """A displacement the vocabulary cannot read is misuse: usage on stderr."""
+    token = write_export(tmp_path)
+    with pytest.raises(SystemExit) as excinfo:
+        main(["scan", token, "--displacement", flag])
+    assert excinfo.value.code != 0
+    captured = capsys.readouterr()
+    assert not captured.out
+    assert "usage" in captured.err.lower()
+
+
+def test_survey_bounds_index_the_sorted_intake(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Bound positions index the ordered intake, never the argument order."""
+    first = tmp_path / "alpha-export.txt"
+    second = tmp_path / "bravo-export.txt"
+    first.write_text(SCAN_EXPORT, encoding="utf-8")
+    second.write_text(SCAN_EXPORT.replace("10.0000", "77.0000"), encoding="utf-8")
+    argv = [
+        "survey",
+        str(second),
+        str(first),
+        "--perturbation",
+        "1,0.25,payload,bounded",
+    ]
+    assert main(argv) == 0
+    doc = document.loads(capsys.readouterr().out)
+    assert len(doc.scans) == 2
+    first_scan = doc.scans[0]
+    second_scan = doc.scans[1]
+    assert first_scan.status == "read"
+    assert second_scan.status == "read"
+    assert first_scan.perturbation_bound is None
+    assert second_scan.perturbation_bound is not None
+    assert second_scan.perturbation_bound.anchor == "payload"
+    assert second_scan.mask_invariance.status == "not-guaranteed"
+
+
+def test_survey_repeated_bound_for_one_scan_is_misuse(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Two bounds for one scan disagree with nothing to adjudicate: misuse."""
+    token = write_export(tmp_path)
+    argv = [
+        "survey",
+        token,
+        "--perturbation",
+        "0,0.25,residual,bounded",
+        "--perturbation",
+        "0,0.5,residual,bounded",
+    ]
+    assert main(argv) == 2
+    captured = capsys.readouterr()
+    assert not captured.out
+    assert "usage" in captured.err.lower()
+
+
+def test_survey_bound_naming_no_scan_is_misuse(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A bound position beyond the ordered intake names no scan: misuse."""
+    token = write_export(tmp_path)
+    assert main(["survey", token, "--perturbation", "3,0.25,residual,bounded"]) == 2
+    captured = capsys.readouterr()
+    assert not captured.out
+    assert "usage" in captured.err.lower()
+
+
+@pytest.mark.parametrize("flag", ["0.25,residual,bounded", "x,0.25,residual,bounded"])
+def test_survey_malformed_perturbation_is_misuse(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], flag: str
+) -> None:
+    """A perturbation the vocabulary cannot read is misuse: usage on stderr."""
+    token = write_export(tmp_path)
+    with pytest.raises(SystemExit) as excinfo:
+        main(["survey", token, "--perturbation", flag])
+    assert excinfo.value.code != 0
+    captured = capsys.readouterr()
+    assert not captured.out
+    assert "usage" in captured.err.lower()
+
+
+def test_survey_displacement_indexes_the_sorted_intake(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Displacement positions index the ordered intake, moving no guard."""
+    first = tmp_path / "alpha-export.txt"
+    second = tmp_path / "bravo-export.txt"
+    first.write_text(SCAN_EXPORT, encoding="utf-8")
+    second.write_text(SCAN_EXPORT, encoding="utf-8")
+    argv = ["survey", str(second), str(first), "--displacement", "0,0.5,bounded"]
+    assert main(argv) == 0
+    doc = document.loads(capsys.readouterr().out)
+    assert len(doc.scans) == 2
+    first_scan = doc.scans[0]
+    second_scan = doc.scans[1]
+    assert first_scan.status == "read"
+    assert second_scan.status == "read"
+    assert first_scan.displacement_bound is not None
+    assert bits(first_scan.displacement_bound.amplitude) == bits(0.5)
+    assert second_scan.displacement_bound is None
+    assert first_scan.mask_invariance.reason == "requires-recorded-perturbation-bound"
+
+
+@pytest.mark.parametrize(
+    "flag",
+    ["0,0.5", "x,0.5,bounded", "0,abc,bounded", "0,0.5,sometimes"],
+)
+def test_survey_malformed_displacement_is_misuse(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], flag: str
+) -> None:
+    """A displacement the vocabulary cannot read is misuse: usage on stderr."""
+    token = write_export(tmp_path)
+    with pytest.raises(SystemExit) as excinfo:
+        main(["survey", token, "--displacement", flag])
+    assert excinfo.value.code != 0
+    captured = capsys.readouterr()
+    assert not captured.out
+    assert "usage" in captured.err.lower()
+
+
+def test_survey_repeated_displacement_for_one_scan_is_misuse(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Two displacement bounds for one scan disagree: misuse."""
+    token = write_export(tmp_path)
+    argv = [
+        "survey",
+        token,
+        "--displacement",
+        "0,0.5,bounded",
+        "--displacement",
+        "0,0.25,bounded",
+    ]
+    assert main(argv) == 2
+    captured = capsys.readouterr()
+    assert not captured.out
+    assert "usage" in captured.err.lower()

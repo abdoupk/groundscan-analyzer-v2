@@ -43,6 +43,15 @@ SUPPORT_RULE: Final[str] = "measured-cells-only"
 COMBINATION: Final[str] = "median"
 TREND: Final[str] = "none"
 
+# The background operator's sup-norm Lipschitz constant. Forced for the whole
+# class of order-preserving shift-equivariant operators rather than tuned for
+# this model: shift-equivariance answers a uniform offset, so shifting every
+# input by c shifts the output by c and LAMBDA >= 1; monotonicity answers an
+# arbitrary spread, so moving inputs by at most a moves the median by at most
+# a and LAMBDA <= 1. Hence exactly one. Adding a trend term would leave the
+# class by construction, since a fitted slope is not shift-equivariant.
+LAMBDA: Final[float] = 1.0
+
 
 def median(values: Sequence[float]) -> float:
     """Return the median with the pinned even-support evaluation order.

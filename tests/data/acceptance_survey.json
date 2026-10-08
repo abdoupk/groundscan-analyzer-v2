@@ -59,6 +59,7 @@
         "Scan Value"
       ],
       "discrepancies": [],
+      "displacement_bound": null,
       "extent": {
         "field_length": 3.0,
         "field_width": 3.0
@@ -311,12 +312,25 @@
       },
       "line_order": "absent-from-export",
       "longitude_presence": "present-but-empty",
+      "mask_invariance": {
+        "anchor_rule": "anchor-rule-v1",
+        "background_convention": "background-model-v1",
+        "conservativeness": "genuinely-invariant-fields-may-read-not-guaranteed",
+        "magnitude_invariance": "withheld",
+        "ordering_invariance": "withheld",
+        "precondition": "effective-amplitude-positive",
+        "reason": "requires-recorded-perturbation-bound",
+        "status": "not-emitted",
+        "sufficiency": "sufficient-and-not-necessary",
+        "zero_bound_condition": "effective-amplitude-positive"
+      },
       "metric_check": {
         "checked": true,
         "mismatches": [],
         "tolerance": 5e-05
       },
       "payload_hash": "b500cdc92d5a205eb5126cb522be5110d347f0ef4ace21e2b2aa8db807df4c4f",
+      "perturbation_bound": null,
       "position": 0,
       "robust_scale": {
         "convention": "scale-agreement-v1",

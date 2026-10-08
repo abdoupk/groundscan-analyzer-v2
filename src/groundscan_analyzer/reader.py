@@ -23,6 +23,7 @@ from groundscan_analyzer import (
     frames,
     hierarchy,
     input_contract,
+    perturbation,
     positions,
     scale,
 )
@@ -1267,6 +1268,46 @@ def _read_scale_view(
     return _withheld_view(result.status)
 
 
+def _read_guard(
+    remaining: dict[tuple[int, int], float],
+    tree: hierarchy.HierarchyData,
+    declared: document.PerturbationBound | None,
+) -> document.MaskInvariance:
+    """Decide the mask-invariance guard for one scan from its own field.
+
+    Compared levels are every hierarchy level of both polarities, and the
+    domain is finite measured cells only. A birth cell sits exactly at its
+    threshold, so any field with a nonzero cell reads not-guaranteed with
+    no special case; with nothing compared, nothing is established either.
+
+    Args:
+        remaining: The residual per measured coordinate, in original units.
+        tree: The built tree carrying every compared level.
+        declared: The scan's perturbation bound, or None where undeclared.
+
+    Returns:
+        The guard with its state, both conventions, and both corollaries.
+    """
+    cells = [value for value in remaining.values() if math.isfinite(value)]
+    thresholds = list(tree.levels_positive) + list(tree.levels_negative)
+    bound = (
+        perturbation.Bound(
+            amplitude=declared.amplitude,
+            boundedness=declared.boundedness,
+            anchor=declared.anchor,
+        )
+        if declared is not None
+        else None
+    )
+    decided = perturbation.decide(cells, thresholds, bound)
+    return document.MaskInvariance(
+        status=decided.status,
+        reason=decided.reason,
+        ordering_invariance=decided.ordering_invariance,
+        magnitude_invariance=decided.magnitude_invariance,
+    )
+
+
 def _raise_on_issues(table: _Table) -> None:
     """Refuse the scan where any row fails, naming the first failure.
 
@@ -1301,12 +1342,20 @@ def _header_line(measuring: _Block) -> str:
     return measuring.lines[0][1]
 
 
-def _read_scan_inner(text: str, position: int) -> document.ScanRead | document.ScanRefused:
+def _read_scan_inner(
+    text: str,
+    position: int,
+    field_bound: document.PerturbationBound | None,
+    registration_bound: document.DisplacementBound | None,
+) -> document.ScanRead | document.ScanRefused:
     """Read one decoded export through both registries to its record.
 
     Args:
         text: The decoded export text.
         position: The intake position identifying the scan without a path.
+        field_bound: The scan's perturbation bound, or None where undeclared.
+        registration_bound: The scan's displacement bound, or None where
+            undeclared.
 
     Returns:
         The read record, or the refusal with its reason and row breakdown.
@@ -1339,6 +1388,9 @@ def _read_scan_inner(text: str, position: int) -> document.ScanRead | document.S
         background_model=document.BackgroundModel(),
         robust_scale=_read_robust_scale(remaining),
         scale_normalised_view=_read_scale_view(built, shape),
+        perturbation_bound=field_bound,
+        displacement_bound=registration_bound,
+        mask_invariance=_read_guard(remaining, built, field_bound),
         hierarchy=_read_hierarchy(built, context),
         extent=extent,
         latitude_presence=_presence(layout.latitude, has_value=table.latitude_value),
@@ -1363,18 +1415,26 @@ def _present_sections(blocks: dict[str, _Block]) -> list[input_contract.SectionE
     ]
 
 
-def _read_scan(text: str, position: int) -> document.ScanRead | document.ScanRefused:
+def _read_scan(
+    text: str,
+    position: int,
+    field_bound: document.PerturbationBound | None,
+    registration_bound: document.DisplacementBound | None,
+) -> document.ScanRead | document.ScanRefused:
     """Read one scan, converting its refusal into a record.
 
     Args:
         text: The decoded export text.
         position: The intake position identifying the scan without a path.
+        field_bound: The scan's perturbation bound, or None where undeclared.
+        registration_bound: The scan's displacement bound, or None where
+            undeclared.
 
     Returns:
         The read record or the refusal record.
     """
     try:
-        return _read_scan_inner(text, position)
+        return _read_scan_inner(text, position, field_bound, registration_bound)
     except _RefusalError as refusal:
         return document.ScanRefused(
             position=position, reason=refusal.reason, detail=refusal.detail, rows=list(refusal.rows)
@@ -1643,7 +1703,10 @@ def _attach_frames(
 
 
 def read_document(
-    contents: Sequence[bytes], relations: Sequence[frames.Relation] = ()
+    contents: Sequence[bytes],
+    relations: Sequence[frames.Relation] = (),
+    perturbation_bounds: Sequence[document.PerturbationBound | None] = (),
+    displacement_bounds: Sequence[document.DisplacementBound | None] = (),
 ) -> document.Document:
     """Read named exports in intake order to one survey document.
 
@@ -1653,23 +1716,43 @@ def read_document(
     intake positions relate whole lattices into shared frames. Positions
     index the sorted intake from zero with exact words, never repaired
     into a neighbour; a self-loop constrains uniformly like any edge.
+    Declared bounds align with intake positions in the same order, one per
+    scan with None where nothing was declared; a misaligned list stops the
+    run rather than shifting a declaration onto the wrong scan.
 
     Args:
         contents: The raw export bytes in sorted intake order.
         relations: Declared relations over intake positions.
+        perturbation_bounds: Declared field perturbation bounds in intake
+            order, None per scan where undeclared.
+        displacement_bounds: Declared registration displacement bounds in
+            intake order, None per scan where undeclared.
 
     Returns:
         The survey document recording what was read and what was refused.
 
     Raises:
         UndecodableInputError: When a file cannot be decoded at all.
-        ValueError: On an out-of-range position or an unknown word.
+        ValueError: On an out-of-range position, an unknown word, or a
+            misaligned bound list.
     """
     for relation in relations:
         frames.word_to_class(relation.word)
         if not 0 <= relation.first < len(contents) or not 0 <= relation.second < len(contents):
             msg = f"relation names no scan: {relation!r}"
             raise ValueError(msg)
+    perturbations: list[document.PerturbationBound | None] = list(perturbation_bounds) or [
+        None
+    ] * len(contents)
+    displacements: list[document.DisplacementBound | None] = list(displacement_bounds) or [
+        None
+    ] * len(contents)
+    if len(perturbations) != len(contents):
+        msg = f"perturbation bounds name no scan: {len(perturbations)} for {len(contents)}"
+        raise ValueError(msg)
+    if len(displacements) != len(contents):
+        msg = f"displacement bounds name no scan: {len(displacements)} for {len(contents)}"
+        raise ValueError(msg)
     scans: list[document.ScanRead | document.ScanRefused] = []
     for position, content in enumerate(contents):
         try:
@@ -1677,5 +1760,5 @@ def read_document(
         except UnicodeDecodeError as exc:
             msg = f"scan {position} cannot be decoded as text"
             raise UndecodableInputError(msg) from exc
-        scans.append(_read_scan(text, position))
+        scans.append(_read_scan(text, position, perturbations[position], displacements[position]))
     return _attach_frames(scans, relations)
