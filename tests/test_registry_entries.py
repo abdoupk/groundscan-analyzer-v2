@@ -230,5 +230,7 @@ def test_evidence_coverage_apart_from_grade() -> None:
     """Coverage is recorded separately with no third grade."""
     assert set(registry.GRADES) == {"exact", "bounded"}
     assert set(registry.EVIDENCE_COVERAGE) == {"real-data", "synthetic-only", "unexercised"}
+    assert set(registry.GRADES).isdisjoint(set(registry.EVIDENCE_COVERAGE))
     for entry in registry.PROPERTY_ENTRIES:
-        assert entry.grade != entry.evidence_coverage
+        assert entry.grade in registry.GRADES
+        assert entry.evidence_coverage in registry.EVIDENCE_COVERAGE

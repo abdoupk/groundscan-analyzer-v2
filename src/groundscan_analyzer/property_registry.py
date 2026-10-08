@@ -29,7 +29,7 @@ carrying which of the three clauses it failed.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, NamedTuple
+from typing import TYPE_CHECKING, Literal, NamedTuple
 
 if TYPE_CHECKING:
     from typing import Final
@@ -47,23 +47,127 @@ __all__ = [
     "OUTPUT_CLASSES",
     "PLACEMENT_FAILURE_CLAUSES",
     "PROPERTY_ENTRIES",
+    "REFUSED_ENTRIES",
     "REFUSED_TRANSFORMS",
     "REGISTRY_VERSION",
+    "RESULT_STATES",
     "SCOPES_WITH_LOCALITY",
     "SCOPE_FEEDERS",
     "SCOPE_GROUPS",
     "TRANSFORMS",
     "WARRANT_KINDS",
     "CensusEntry",
+    "ConventionName",
+    "EvidenceCoverage",
     "FeederExclusion",
+    "Grade",
     "NonOutputEntry",
+    "OutputClass",
+    "PlacementClause",
     "PropertyEntry",
+    "RefusedEntry",
+    "RefusedTransformName",
+    "ResultState",
+    "ScopeGroup",
+    "ScopeName",
+    "TransformName",
+    "WarrantKind",
+]
+
+OutputClass = Literal[
+    "identity",
+    "lattice-structure",
+    "analysis-quantity",
+    "hierarchy-structure",
+    "positional-expression",
+    "numbered-presentation",
+    "boundary-evidence",
+    "recorded-fact",
+    "limitation",
+]
+
+ScopeGroup = Literal[
+    "residual-field",
+    "effective-amplitude",
+    "scale-agreement",
+    "field-position",
+    "frame-relation",
+]
+
+ScopeName = Literal[
+    "residual-field",
+    "effective-amplitude",
+    "scale-agreement",
+    "field-position",
+    "frame-relation",
+    "",
+]
+
+TransformName = Literal[
+    "identity",
+    "reflect-along-line",
+    "reflect-across-lines",
+    "reflect-both",
+    "index-relabelling",
+    "row-permutation",
+    "survey-reordering",
+    "padding-addition",
+    "non-load-bearing-field-substitution",
+    "context-column-substitution",
+    "metric-echo-substitution",
+    "unframed-position-value-substitution",
+    "dialect-substitution",
+    "re-rooting",
+    "level-cut",
+    "convention-bump",
+]
+
+RefusedTransformName = Literal[
+    "rot90",
+    "padding-relocation",
+    "sub-lattice-resampling",
+    "perturbation",
+    "physical-reading",
+]
+
+ConventionName = Literal[
+    "quantile-v1",
+    "background-model-v1",
+    "scale-agreement-v1",
+    "anchor-rule-v1",
+    "field-position-v1",
+    "relative-turn-v1",
+    "canonical-reference-v1",
+    "default-numeric-reading-v1",
+]
+
+Grade = Literal["exact", "bounded"]
+
+WarrantKind = Literal[
+    "shared-order-statistic",
+    "transitive-closure",
+    "monotonicity",
+    "dominance",
+    "non-constancy-in-metric-scale",
+    "direct-dependence-on-declared-data",
+    "reference-relativity",
+    "route-independence",
+]
+
+EvidenceCoverage = Literal["real-data", "synthetic-only", "unexercised"]
+
+ResultState = Literal["emitted", "not-emitted", "indeterminate"]
+
+PlacementClause = Literal[
+    "decided-from-computation",
+    "carried-on-record",
+    "withheld-state-not-caveat",
 ]
 
 CONTRACT_VERSION: Final[int] = 1
 REGISTRY_VERSION: Final[int] = 2
 
-OUTPUT_CLASSES: Final[tuple[str, ...]] = (
+OUTPUT_CLASSES: Final[tuple[OutputClass, ...]] = (
     "identity",
     "lattice-structure",
     "analysis-quantity",
@@ -75,7 +179,7 @@ OUTPUT_CLASSES: Final[tuple[str, ...]] = (
     "limitation",
 )
 
-SCOPE_GROUPS: Final[tuple[str, ...]] = (
+SCOPE_GROUPS: Final[tuple[ScopeGroup, ...]] = (
     "residual-field",
     "effective-amplitude",
     "scale-agreement",
@@ -83,7 +187,7 @@ SCOPE_GROUPS: Final[tuple[str, ...]] = (
     "frame-relation",
 )
 
-TRANSFORMS: Final[tuple[str, ...]] = (
+TRANSFORMS: Final[tuple[TransformName, ...]] = (
     "identity",
     "reflect-along-line",
     "reflect-across-lines",
@@ -102,7 +206,7 @@ TRANSFORMS: Final[tuple[str, ...]] = (
     "convention-bump",
 )
 
-REFUSED_TRANSFORMS: Final[tuple[str, ...]] = (
+REFUSED_TRANSFORMS: Final[tuple[RefusedTransformName, ...]] = (
     "rot90",
     "padding-relocation",
     "sub-lattice-resampling",
@@ -110,7 +214,7 @@ REFUSED_TRANSFORMS: Final[tuple[str, ...]] = (
     "physical-reading",
 )
 
-CONVENTIONS: Final[tuple[str, ...]] = (
+CONVENTIONS: Final[tuple[ConventionName, ...]] = (
     "quantile-v1",
     "background-model-v1",
     "scale-agreement-v1",
@@ -121,12 +225,12 @@ CONVENTIONS: Final[tuple[str, ...]] = (
     "default-numeric-reading-v1",
 )
 
-GRADES: Final[tuple[str, ...]] = (
+GRADES: Final[tuple[Grade, ...]] = (
     "exact",
     "bounded",
 )
 
-WARRANT_KINDS: Final[tuple[str, ...]] = (
+WARRANT_KINDS: Final[tuple[WarrantKind, ...]] = (
     "shared-order-statistic",
     "transitive-closure",
     "monotonicity",
@@ -137,21 +241,27 @@ WARRANT_KINDS: Final[tuple[str, ...]] = (
     "route-independence",
 )
 
-EVIDENCE_COVERAGE: Final[tuple[str, ...]] = (
+EVIDENCE_COVERAGE: Final[tuple[EvidenceCoverage, ...]] = (
     "real-data",
     "synthetic-only",
     "unexercised",
 )
 
+RESULT_STATES: Final[tuple[ResultState, ...]] = (
+    "emitted",
+    "not-emitted",
+    "indeterminate",
+)
+
 NON_OUTPUT_MARKER: Final[str] = "non-output"
 
-PLACEMENT_FAILURE_CLAUSES: Final[tuple[str, ...]] = (
+PLACEMENT_FAILURE_CLAUSES: Final[tuple[PlacementClause, ...]] = (
     "decided-from-computation",
     "carried-on-record",
     "withheld-state-not-caveat",
 )
 
-SCOPE_FEEDERS: Final[dict[str, tuple[str, ...]]] = {
+SCOPE_FEEDERS: Final[dict[ScopeGroup, tuple[ConventionName, ...]]] = {
     "residual-field": ("background-model-v1",),
     "effective-amplitude": ("background-model-v1", "anchor-rule-v1"),
     "scale-agreement": ("scale-agreement-v1", "quantile-v1"),
@@ -163,13 +273,13 @@ SCOPE_FEEDERS: Final[dict[str, tuple[str, ...]]] = {
     "frame-relation": ("relative-turn-v1", "canonical-reference-v1"),
 }
 
-SCOPES_WITH_LOCALITY: Final[tuple[str, ...]] = (
+SCOPES_WITH_LOCALITY: Final[tuple[ScopeGroup, ...]] = (
     "residual-field",
     "field-position",
     "frame-relation",
 )
 
-CONVENTION_PARTS: Final[dict[str, tuple[str, ...]]] = {
+CONVENTION_PARTS: Final[dict[ConventionName, tuple[str, ...]]] = {
     "quantile-v1": ("interpolation-type", "plotting-position"),
     "background-model-v1": ("window-ladder", "support-rule", "combination"),
     "scale-agreement-v1": (
@@ -193,7 +303,7 @@ CONVENTION_PARTS: Final[dict[str, tuple[str, ...]]] = {
     "default-numeric-reading-v1": ("separator-assumption",),
 }
 
-CONVENTION_SURFACES: Final[dict[str, tuple[str, ...]]] = {
+CONVENTION_SURFACES: Final[dict[ConventionName, tuple[str, ...]]] = {
     "default-numeric-reading-v1": (
         "response-column",
         "declared-extent-block",
@@ -205,7 +315,7 @@ class CensusEntry(NamedTuple):
     """One registry output with its class and strict-subset members."""
 
     output: str
-    output_class: str
+    output_class: OutputClass
     members: tuple[str, ...]
 
 
@@ -213,35 +323,51 @@ class NonOutputEntry(NamedTuple):
     """One named non-output with the placement clause it failed."""
 
     output: str
-    clause: str
+    clause: PlacementClause
 
 
 class FeederExclusion(NamedTuple):
     """One feeder's answer inside a shared entry."""
 
-    feeder: str
+    feeder: ConventionName
     excluded: tuple[str, ...]
     governed: tuple[str, ...]
+
+
+class RefusedEntry(NamedTuple):
+    """One refused transform as a named non-property carrying its reason."""
+
+    transform: RefusedTransformName
+    reason: str
 
 
 class PropertyEntry(NamedTuple):
     """One stated property over a transform, scope and output class."""
 
-    transform: str
-    scope: str
-    output_class: str
-    grade: str
-    warrant: str
+    transform: TransformName
+    scope: ScopeName
+    output_class: OutputClass
+    grade: Grade
+    warrant: WarrantKind
     warrant_non_general: bool
     preconditions: str
     bound_derivation: str
     zero_bound_condition: str
     governed: tuple[str, ...]
     excluded: tuple[str, ...]
-    evidence_coverage: str
-    feeders: tuple[str, ...]
+    evidence_coverage: EvidenceCoverage
+    feeders: tuple[ConventionName, ...]
     feeder_exclusions: tuple[FeederExclusion, ...]
     bump_carries: tuple[str, ...]
+
+
+REFUSED_ENTRIES: Final[tuple[RefusedEntry, ...]] = (
+    RefusedEntry("rot90", "a quarter turn maps no lattice to itself"),
+    RefusedEntry("padding-relocation", "turning a measured cell into padding removes content"),
+    RefusedEntry("sub-lattice-resampling", "resampling manufactures values"),
+    RefusedEntry("perturbation", "deliberately changing the measurement"),
+    RefusedEntry("physical-reading", "interpreting measurement as ground"),
+)
 
 
 OUTPUT_CENSUS: Final[tuple[CensusEntry, ...]] = (
