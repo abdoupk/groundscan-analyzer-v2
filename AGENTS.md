@@ -31,6 +31,8 @@ The shell is PowerShell without Unix utils (`head`, `grep`, bare `python3`, and 
 
 Run gates in this order: `ruff format` → `ruff check` → `mypy` → `pytest`.
 
+Bumping a registry version also means bumping its `Document` literal and regenerating `tests/data/*.json` via `document.dumps`; only a full `pytest` proves it, never a focused file.
+
 There is still no CI. There **is** a `.pre-commit-config.yaml`, which runs the cheap gates on every commit: `ruff format` → `ruff check` → `vulture src` → `mypy` → `pytest` → `scripts/check_map.py` → `deptry .`. Two more are wired up but off the commit path, on the `manual` stage, because they cost minutes or need the network:
 
 ```bash
@@ -60,6 +62,7 @@ uv run pre-commit run --hook-stage manual --all-files
 - Size/complexity caps: `max-args = 5`, `max-branches = 10`, `max-returns = 4`, `max-statements = 40`, `max-complexity = 8`. Split functions rather than suppressing with `# noqa`.
 - Assign exception messages to a variable before raising (EM101/TRY003); document exactly the exceptions a function raises itself; suppress only as `ruff: ignore[rule-name]` with a reason.
 - `tests/**` ignores `D`, `assert`, `private-member-access`, `magic-value-comparison`, `too-many-arguments` — test files do not need docstrings.
+- Share closed vocabularies as `Literal` aliases (e.g. `WithheldReason`); never `Final[Literal[...]]` constants or `NamedTuple` fields named `count`/`index` (tuple methods).
 
 ## mypy is stricter than default strict
 
@@ -82,7 +85,7 @@ uv run pre-commit run --hook-stage manual --all-files
 
 ## Git hygiene
 
-`.gitignore` covers only `__pycache__/`, `*.py[oc]`, `build/`, `dist/`, `wheels/`, `*.egg-info`, and `.venv`. Tool caches are **not** ignored: `.mypy_cache/`, `.pytest_cache/`, `.ruff_cache/`, `.coverage`, and `.gremlins_cache/` (created by `pytest --gremlins`) all show up as untracked. Delete them before staging.
+`.gitignore` covers generated files, tool caches, `.venv`, and `graphify-out/`. If a tool cache shows up as untracked, extend `.gitignore` rather than deleting by hand each time.
 
 ## Implementing an engine slice
 

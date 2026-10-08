@@ -9,5 +9,11 @@ wheels/
 # Virtual environments
 .venv
 
+# Tool caches
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.coverage
+.gremlins_cache/
 
 graphify-out/
