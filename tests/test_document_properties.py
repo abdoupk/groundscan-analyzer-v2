@@ -58,7 +58,7 @@ def test_contract_version_declared_first_at_root() -> None:
     """The document opens with its monotonic integer contract version."""
     doc = read()
     assert doc.contract_version == 1
-    assert doc.registry_version == 2
+    assert doc.registry_version == 3
     text = document.dumps(doc)
     assert text.index('"contract_version"') < text.index('"scans"')
 

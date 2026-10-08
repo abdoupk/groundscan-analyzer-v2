@@ -18,6 +18,7 @@ from pydantic import BaseModel, BeforeValidator, ConfigDict, Field
 
 from groundscan_analyzer import background, dialect, frames, hierarchy, quantity_registry
 from groundscan_analyzer import perturbation as perturbation_module
+from groundscan_analyzer import registration as registration_module
 from groundscan_analyzer import scale as scale_module
 from groundscan_analyzer.property_registry import CONTRACT_VERSION, REGISTRY_VERSION
 
@@ -616,6 +617,105 @@ class MaskInvariance(BaseModel):
     magnitude_invariance: perturbation_module.Corollary
 
 
+class RegistrationShift(BaseModel):
+    """One shift in deterministic report order with its correlation."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    dy: int
+    dx: int
+    correlation: FiniteOptionalFloat = None
+    overlap: int = Field(ge=0)
+
+
+class RegistrationEvidence(BaseModel):
+    """Self-alignment evidence with four separate quantities and no composite.
+
+    Margin, correlation, argmax stability and margin drift travel
+    independently, and no composite number exists anywhere. Shifts are
+    reported in deterministic order, which fixes report order only and
+    never selects which shift is physically correct. Three separate checks
+    each make the result indeterminate with its own name: more than one
+    shift sharing the maximum exactly, shifts tied within the recorded
+    floating-point bound, and an argmax unstable under the recorded
+    displacement. The bound derives from the scoring computation and its
+    accumulation length, catches exact coincidence only, and is never a
+    doubt measure. The chance baseline displaces by a fixed vector larger
+    than the match tolerance and measures chance correspondence. No
+    separation threshold exists; the criterion stays provisional. The scope
+    is self-alignment only on every result. A passing check means the
+    shift is well-defined and stable under the recorded bound, never that
+    the alignment is physically real.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    status: registration_module.RegistrationStatus
+    reason: registration_module.RegistrationReason | None = None
+    margin: FiniteOptionalFloat = None
+    correlation: FiniteOptionalFloat = None
+    argmax_dy: int | None = None
+    argmax_dx: int | None = None
+    argmax_stable: bool | None = None
+    margin_drift: FiniteOptionalFloat = None
+    shift_count: int = Field(ge=0)
+    scored_count: int = Field(ge=0)
+    accumulation_length: int = Field(ge=0)
+    exact_tie_tolerance: FiniteFloat
+    deterministic_order: Literal["deterministic-order-fixes-report-order-only"] = (
+        registration_module.DETERMINISTIC_ORDER_NOTE  # type: ignore[assignment]
+    )
+    evidence_scope: Literal["self-alignment-only"] = registration_module.EVIDENCE_SCOPE  # type: ignore[assignment]
+    passing_means: Literal["well-defined-and-stable-under-recorded-bound"] = (
+        registration_module.PASSING_MEANS  # type: ignore[assignment]
+    )
+    physical_disclaimer: Literal["never-physically-real"] = registration_module.PHYSICAL_DISCLAIMER  # type: ignore[assignment]
+    separation_criterion: Literal["provisional"] = registration_module.SEPARATION_CRITERION  # type: ignore[assignment]
+    separation_reason: Literal["missing-independent-repeat-acquisitions"] = (
+        registration_module.SEPARATION_REASON  # type: ignore[assignment]
+    )
+    chance_dy: int
+    chance_dx: int
+    chance_correlation: FiniteOptionalFloat = None
+    chance_note: Literal["measures-chance-correspondence-not-real-world-behaviour"] = (
+        registration_module.CHANCE_NOTE  # type: ignore[assignment]
+    )
+    repeat_limitation: Literal["no-independent-repeat-acquisitions"] = (
+        registration_module.REPEAT_LIMITATION  # type: ignore[assignment]
+    )
+    shifts: list[RegistrationShift] = Field(default_factory=list)
+
+
+class RecurrencePair(BaseModel):
+    """One pair with its decidable eligibility and indeterminate verdict.
+
+    Every eligible pair reports indeterminate, names the missing
+    comparability warrant, and emits no match rate. Differing lattice
+    dimensions make a pair ineligible rather than refused, and neither
+    scan is affected. Correspondence is exact index identity at zero
+    shifts with no tunable tolerance, and no comparability test exists in
+    any form. Scale disagreement is recorded as the reason recurrence is
+    fragile, with the repeat-data gap as the limitation the result carries.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    first: int = Field(ge=0)
+    second: int = Field(ge=0)
+    eligibility: Literal["eligible", "ineligible"]
+    reason: registration_module.RecurrenceReason
+    status: Literal["indeterminate", "not-emitted"]
+    correspondence: Literal["exact-index-identity-at-zero-cells"] = (
+        registration_module.CORRESPONDENCE  # type: ignore[assignment]
+    )
+    fragility_reason: Literal["scale-disagreement-makes-recurrence-fragile"] = (
+        registration_module.FRAGILITY_REASON  # type: ignore[assignment]
+    )
+    repeat_limitation: Literal["no-independent-repeat-acquisitions"] = (
+        registration_module.REPEAT_LIMITATION  # type: ignore[assignment]
+    )
+
+
 class ScanRead(BaseModel):
     """A scan the contract accepted, carrying its lattice and responses.
 
@@ -637,6 +737,7 @@ class ScanRead(BaseModel):
     perturbation_bound: PerturbationBound | None = None
     displacement_bound: DisplacementBound | None = None
     mask_invariance: MaskInvariance
+    registration: RegistrationEvidence
     hierarchy: Hierarchy
     extent: Extent
     latitude_presence: PresenceState
@@ -666,7 +767,7 @@ class Document(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     contract_version: Literal[1] = CONTRACT_VERSION  # type: ignore[assignment]
-    registry_version: Literal[2] = REGISTRY_VERSION  # type: ignore[assignment]
+    registry_version: Literal[3] = REGISTRY_VERSION  # type: ignore[assignment]
     quantity_registry_version: Literal[4] = quantity_registry.QUANTITY_REGISTRY_VERSION  # type: ignore[assignment]
     decimal_separator: Literal["."] = dialect.DECIMAL_SEPARATOR  # type: ignore[assignment]
     convention: Literal["default-numeric-reading-v1"] = dialect.CONVENTION  # type: ignore[assignment]
@@ -675,6 +776,7 @@ class Document(BaseModel):
     declared_relations: list[DeclaredRelation] = Field(default_factory=list)
     frames: list[Frame] = Field(default_factory=list)
     contradictions: list[Contradiction] = Field(default_factory=list)
+    recurrences: list[RecurrencePair] = Field(default_factory=list)
 
 
 def dumps(doc: Document) -> str:

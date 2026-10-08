@@ -25,6 +25,7 @@ from groundscan_analyzer import (
     input_contract,
     perturbation,
     positions,
+    registration,
     scale,
 )
 
@@ -1308,6 +1309,278 @@ def _read_guard(
     )
 
 
+def _chance_shifts() -> tuple[tuple[int, int], ...]:
+    """Return the chance window: candidates shifted by the fixed vector.
+
+    The chance baseline displaces by ``(1, 0)``, larger than the zero-cell
+    match tolerance, so realigning that displacement reads the shifted
+    window. One construction serves both registration drift and the
+    recurrence contract.
+
+    Returns:
+        The shifted shifts in deterministic sorted order.
+    """
+    dy, dx = registration.CHANCE_DISPLACEMENT
+    return tuple(
+        sorted(
+            (shift_dy - dy, shift_dx - dx) for shift_dy, shift_dx in registration.CANDIDATE_SHIFTS
+        )
+    )
+
+
+def _best_of(
+    responses: dict[tuple[int, int], float], shifts: Sequence[tuple[int, int]]
+) -> float | None:
+    """Return the best defined correlation over one shift window.
+
+    Args:
+        responses: Measured responses keyed by lattice coordinate.
+        shifts: The shifts to consider, in deterministic order.
+
+    Returns:
+        The maximal correlation, or None where fewer than two define one.
+    """
+    summary = registration.summarise(registration.score_shifts(responses, shifts))
+    return summary.best if summary is not None else None
+
+
+def _perturbed_window(bound: document.DisplacementBound) -> tuple[tuple[int, int], ...]:
+    """Return the perturbed shift window for one recorded displacement.
+
+    Candidate positions are integers, so the float amplitude perturbs them
+    by its integer truncation along the chance axis. Every perturbed shift
+    stays integral, so no interpolation ever occurs.
+
+    Args:
+        bound: The recorded bounded displacement bound.
+
+    Returns:
+        The union of shifts with their perturbed positions, deduplicated
+        in deterministic sorted order.
+    """
+    vector = registration.perturbation_vector(bound.amplitude)
+    return registration.shifted_union(registration.CANDIDATE_SHIFTS, vector)
+
+
+def _stability_of(
+    summary: registration.Summary | None, perturbed: registration.Summary | None
+) -> bool | None:
+    """Decide argmax stability between two summaries.
+
+    Args:
+        summary: The summary over the original shifts, if scorable.
+        perturbed: The summary over the perturbed window, if scorable.
+
+    Returns:
+        True where both define the same absolute winners, False where
+        they differ, and None where either side is not scorable.
+    """
+    if summary is None or perturbed is None:
+        return None
+    first = {(item.dy, item.dx) for item in summary.winners}
+    second = {(item.dy, item.dx) for item in perturbed.winners}
+    return first == second
+
+
+def _drift_of(
+    summary: registration.Summary | None, perturbed: registration.Summary | None
+) -> float | None:
+    """Return the margin drift between two summaries.
+
+    Args:
+        summary: The summary over the original shifts, if scorable.
+        perturbed: The summary over the perturbed window, if scorable.
+
+    Returns:
+        The absolute margin change, or None where either margin is missing.
+    """
+    if summary is None or perturbed is None:
+        return None
+    return abs((summary.best - summary.second) - (perturbed.best - perturbed.second))
+
+
+def _registration_verdict(
+    summary: registration.Summary | None,
+    tolerance: float,
+    bound: document.DisplacementBound | None,
+    *,
+    stable: bool | None,
+) -> tuple[
+    registration.RegistrationStatus,
+    registration.RegistrationReason | None,
+    float | None,
+    float | None,
+]:
+    """Decide the registration status with its margin and correlation.
+
+    Precedence is fixed: scorable shifts first, then the non-unique
+    argmax, then the tie within the recorded bound, then the missing or
+    unbounded displacement, and finally the instability under the recorded
+    perturbation. Each names which check failed.
+
+    Args:
+        summary: The summary over the original shifts, if scorable.
+        tolerance: The derived floating-point bound for the scan.
+        bound: The recorded displacement bound, or None where undeclared.
+        stable: The stability decision, or None where not scorable.
+
+    Returns:
+        The status with its reason, margin and correlation, the latter
+        two reported wherever computable.
+    """
+    margin: float | None = None
+    correlation: float | None = None
+    status: registration.RegistrationStatus = "not-emitted"
+    reason: registration.RegistrationReason | None = "requires-scorable-shifts"
+    if summary is not None:
+        margin = summary.best - summary.second
+        correlation = summary.best
+        status, reason = _verdict_defined(summary, margin, tolerance, bound, stable=stable)
+    return status, reason, margin, correlation
+
+
+def _verdict_defined(
+    summary: registration.Summary,
+    margin: float,
+    tolerance: float,
+    bound: document.DisplacementBound | None,
+    *,
+    stable: bool | None,
+) -> tuple[registration.RegistrationStatus, registration.RegistrationReason | None]:
+    """Decide the verdict where at least two shifts define a correlation.
+
+    Args:
+        summary: The summary over the original shifts.
+        margin: The best minus second-best correlation.
+        tolerance: The derived floating-point bound for the scan.
+        bound: The recorded displacement bound, or None where undeclared.
+        stable: The stability decision, or None where not scorable.
+
+    Returns:
+        The status with its reason, None where emitted.
+    """
+    reason: registration.RegistrationReason | None = None
+    if len(summary.winners) > 1:
+        reason = "non-unique-argmax"
+    elif margin <= tolerance:
+        reason = "tied-within-recorded-bound"
+    elif bound is None:
+        reason = "requires-recorded-displacement-bound"
+    elif bound.boundedness == "unbounded":
+        reason = "requires-bounded-displacement"
+    elif stable is False:
+        reason = "unstable-under-recorded-perturbation"
+    elif stable is None:
+        reason = "requires-scorable-shifts"
+    status: registration.RegistrationStatus = (
+        "emitted"
+        if reason is None
+        else (
+            "indeterminate"
+            if reason
+            in {
+                "non-unique-argmax",
+                "tied-within-recorded-bound",
+                "unstable-under-recorded-perturbation",
+            }
+            else "not-emitted"
+        )
+    )
+    return status, reason
+
+
+def _read_registration(
+    responses: dict[tuple[int, int], float],
+    bound: document.DisplacementBound | None,
+) -> document.RegistrationEvidence:
+    """Build self-alignment evidence for one scan from its responses.
+
+    Margin, correlation, stability and drift travel separately with no
+    composite anywhere. Shifts report in deterministic order, which fixes
+    report order only. The scope is self-alignment only on every result,
+    passing means well-defined and stable under the recorded bound rather
+    than physically real, the separation criterion stays provisional, and
+    the chance baseline measures chance correspondence. The accumulation
+    length is the whole-scan measured count, which is the identity shift
+    overlap behind the best correlation.
+
+    Args:
+        responses: Measured responses keyed by lattice coordinate.
+        bound: The recorded displacement bound, or None where undeclared.
+
+    Returns:
+        The registration evidence with its four quantities and checks.
+    """
+    accumulation = len(responses)
+    tolerance = registration.exact_tie_tolerance(accumulation)
+    scores = registration.score_shifts(responses, registration.CANDIDATE_SHIFTS)
+    summary = registration.summarise(scores)
+    chance = _best_of(responses, _chance_shifts())
+    perturbed = _perturbed_summary(responses, bound)
+    stable = _stability_of(summary, perturbed)
+    drift = _drift_of(summary, perturbed)
+    status, reason, margin, correlation = _registration_verdict(
+        summary, tolerance, bound, stable=stable
+    )
+    winner = _winner_of(summary)
+    return document.RegistrationEvidence(
+        status=status,
+        reason=reason,
+        margin=margin,
+        correlation=correlation,
+        argmax_dy=winner[0] if winner is not None else None,
+        argmax_dx=winner[1] if winner is not None else None,
+        argmax_stable=stable,
+        margin_drift=drift,
+        shift_count=len(registration.CANDIDATE_SHIFTS),
+        scored_count=len(summary.defined) if summary is not None else 0,
+        accumulation_length=accumulation,
+        exact_tie_tolerance=tolerance,
+        chance_dy=registration.CHANCE_DISPLACEMENT[0],
+        chance_dx=registration.CHANCE_DISPLACEMENT[1],
+        chance_correlation=chance,
+        shifts=[
+            document.RegistrationShift(
+                dy=item.dy, dx=item.dx, correlation=item.correlation, overlap=item.overlap
+            )
+            for item in scores
+        ],
+    )
+
+
+def _perturbed_summary(
+    responses: dict[tuple[int, int], float],
+    bound: document.DisplacementBound | None,
+) -> registration.Summary | None:
+    """Summarise the perturbed window, or nothing where undeclared.
+
+    Args:
+        responses: Measured responses keyed by lattice coordinate.
+        bound: The recorded displacement bound, or None where undeclared.
+
+    Returns:
+        The perturbed summary where bounded, else None.
+    """
+    if bound is None or bound.boundedness == "unbounded":
+        return None
+    return registration.summarise(registration.score_shifts(responses, _perturbed_window(bound)))
+
+
+def _winner_of(summary: registration.Summary | None) -> tuple[int, int] | None:
+    """Return the single winner shift, or nothing where ambiguous.
+
+    Args:
+        summary: The summary over the original shifts, if scorable.
+
+    Returns:
+        The winner coordinates where exactly one shift wins, else None.
+    """
+    if summary is None or len(summary.winners) != 1:
+        return None
+    only = summary.winners[0]
+    return (only.dy, only.dx)
+
+
 def _raise_on_issues(table: _Table) -> None:
     """Refuse the scan where any row fails, naming the first failure.
 
@@ -1391,6 +1664,7 @@ def _read_scan_inner(
         perturbation_bound=field_bound,
         displacement_bound=registration_bound,
         mask_invariance=_read_guard(remaining, built, field_bound),
+        registration=_read_registration(_measured_responses(table.rows), registration_bound),
         hierarchy=_read_hierarchy(built, context),
         extent=extent,
         latitude_presence=_presence(layout.latitude, has_value=table.latitude_value),
@@ -1657,6 +1931,119 @@ def _rebuild_scan(
     })
 
 
+def _pair_dims(scan: document.ScanRead | document.ScanRefused) -> tuple[int, int] | None:
+    """Return one scan lattice dimensions, or nothing where not read.
+
+    Args:
+        scan: The read or refused scan record.
+
+    Returns:
+        The impulse and scan-line counts, or None where refused.
+    """
+    if scan.status != "read":
+        return None
+    return (len(scan.lattice.impulses), len(scan.lattice.scan_lines))
+
+
+def _has_direct_relation(tree: frames.FramesData, first: int, second: int) -> bool:
+    """Report whether a declared edge directly connects one pair.
+
+    Args:
+        tree: The built frames with verbatim declared edges.
+        first: One intake position.
+        second: The other intake position.
+
+    Returns:
+        True where an edge names exactly those endpoints.
+    """
+    return any({edge.first, edge.second} == {first, second} for edge in tree.declared)
+
+
+def _same_viable_frame(tree: frames.FramesData, first: int, second: int) -> bool:
+    """Report whether two scans share one viable frame.
+
+    Args:
+        tree: The built frames with per-scan states.
+        first: One intake position.
+        second: The other intake position.
+
+    Returns:
+        True where both hold the same non-missing frame name.
+    """
+    first_state = tree.states[first]
+    second_state = tree.states[second]
+    return first_state.frame is not None and first_state.frame == second_state.frame
+
+
+def _is_tainted(tree: frames.FramesData, position: int) -> bool:
+    """Report whether one scan sits in a withdrawn component.
+
+    Args:
+        tree: The built frames with per-scan states.
+        position: The intake position to inspect.
+
+    Returns:
+        True where contradictions withdrew its component.
+    """
+    return tree.states[position].kind == "withdrawn"
+
+
+def _recurrence_pair(
+    scans: Sequence[document.ScanRead | document.ScanRefused],
+    tree: frames.FramesData,
+    first: int,
+    second: int,
+) -> document.RecurrencePair:
+    """Decide one pair with its indeterminate verdict and no match rate.
+
+    Args:
+        scans: The read or refused scan records in intake order.
+        tree: The built frames with per-scan states.
+        first: One intake position.
+        second: The other intake position.
+
+    Returns:
+        The pair with decidable eligibility and its named reason.
+    """
+    eligibility, reason = registration.decide_recurrence(
+        _pair_dims(scans[first]),
+        _pair_dims(scans[second]),
+        has_relation=_has_direct_relation(tree, first, second),
+        contradictory=_is_tainted(tree, first) or _is_tainted(tree, second),
+        same_frame=_same_viable_frame(tree, first, second),
+    )
+    status: Literal["indeterminate", "not-emitted"] = (
+        "indeterminate" if eligibility == "eligible" else "not-emitted"
+    )
+    return document.RecurrencePair(
+        first=first,
+        second=second,
+        eligibility=eligibility,
+        reason=reason,
+        status=status,
+    )
+
+
+def _recurrence_pairs(
+    scans: Sequence[document.ScanRead | document.ScanRefused],
+    tree: frames.FramesData,
+) -> list[document.RecurrencePair]:
+    """Decide every unordered pair in deterministic pair order.
+
+    Args:
+        scans: The read or refused scan records in intake order.
+        tree: The built frames with per-scan states.
+
+    Returns:
+        One record per pair, first below second, with no match rate.
+    """
+    return [
+        _recurrence_pair(scans, tree, first, second)
+        for first in range(len(scans))
+        for second in range(first + 1, len(scans))
+    ]
+
+
 def _attach_frames(
     scans: list[document.ScanRead | document.ScanRefused],
     relations: Sequence[frames.Relation],
@@ -1699,6 +2086,7 @@ def _attach_frames(
             )
             for found in tree.contradictions
         ],
+        recurrences=_recurrence_pairs(scans, tree),
     )
 
 

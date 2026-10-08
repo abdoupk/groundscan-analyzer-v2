@@ -4,7 +4,7 @@ The shipped, versioned home of every closed vocabulary the contract has. The
 module `groundscan_analyzer.property_registry` declares the same five sets;
 this file states them where a reader can see them, so the two cannot drift.
 
-Contract version: 1, Registry version: 2. The two travel once at the document
+Contract version: 1, Registry version: 3. The two travel once at the document
 root, beside each other, so a registry change is never mistakable for a change
 of record shape.
 
@@ -158,6 +158,8 @@ version beside the contract version.
 | `mask-invariance` | `recorded-fact` | `Effective amplitude` |
 | `frame-relation` | `recorded-fact` | `Frame relation` |
 | `aspect-consistency` | `recorded-fact` | `Aspect consistency` |
+| `registration-evidence` | `recorded-fact` |  |
+| `recurrence` | `recorded-fact` |  |
 | `requires-declared-extent` | `limitation` | `requires-declared-extent` |
 | `requires-homogeneous-axes` | `limitation` | `requires-homogeneous-axes` |
 | `requires-bounded-perturbation` | `limitation` | `requires-bounded-perturbation` |
@@ -165,4 +167,14 @@ version beside the contract version.
 | `missing-orientation-path` | `limitation` | `missing-orientation-path` |
 | `scale-not-warranted` | `limitation` | `scale-not-warranted` |
 | `scale-not-positive-finite` | `limitation` | `scale-not-positive-finite` |
+| `non-unique-argmax` | `limitation` | `non-unique-argmax` |
+| `tied-within-recorded-bound` | `limitation` | `tied-within-recorded-bound` |
+| `unstable-under-recorded-perturbation` | `limitation` | `unstable-under-recorded-perturbation` |
+| `requires-recorded-displacement-bound` | `limitation` | `requires-recorded-displacement-bound` |
+| `requires-bounded-displacement` | `limitation` | `requires-bounded-displacement` |
+| `requires-scorable-shifts` | `limitation` | `requires-scorable-shifts` |
+| `missing-comparability-warrant` | `limitation` | `missing-comparability-warrant` |
+| `differing-lattice-dimensions` | `limitation` | `differing-lattice-dimensions` |
+| `missing-declared-relation` | `limitation` | `missing-declared-relation` |
+| `contradictory-relation` | `limitation` | `contradictory-relation` |
 <!-- END VOCABULARY -->

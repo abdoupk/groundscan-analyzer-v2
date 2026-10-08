@@ -276,7 +276,7 @@ def test_evidence_coverage_apart_and_version_stable() -> None:
         assert swapped.bound_derivation == entry.bound_derivation
         assert swapped.zero_bound_condition == entry.zero_bound_condition
     assert version_before == registry.REGISTRY_VERSION
-    assert registry.REGISTRY_VERSION == 2
+    assert registry.REGISTRY_VERSION == 3
 
 
 def test_result_states_stay_three_and_gate_free() -> None:

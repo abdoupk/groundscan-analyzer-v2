@@ -165,7 +165,7 @@ PlacementClause = Literal[
 ]
 
 CONTRACT_VERSION: Final[int] = 1
-REGISTRY_VERSION: Final[int] = 2
+REGISTRY_VERSION: Final[int] = 3
 
 OUTPUT_CLASSES: Final[tuple[OutputClass, ...]] = (
     "identity",
@@ -404,6 +404,8 @@ OUTPUT_CENSUS: Final[tuple[CensusEntry, ...]] = (
     CensusEntry("mask-invariance", "recorded-fact", ("Effective amplitude",)),
     CensusEntry("frame-relation", "recorded-fact", ("Frame relation",)),
     CensusEntry("aspect-consistency", "recorded-fact", ("Aspect consistency",)),
+    CensusEntry("registration-evidence", "recorded-fact", ()),
+    CensusEntry("recurrence", "recorded-fact", ()),
     CensusEntry(
         "requires-declared-extent",
         "limitation",
@@ -434,6 +436,52 @@ OUTPUT_CENSUS: Final[tuple[CensusEntry, ...]] = (
         "scale-not-positive-finite",
         "limitation",
         ("scale-not-positive-finite",),
+    ),
+    CensusEntry("non-unique-argmax", "limitation", ("non-unique-argmax",)),
+    CensusEntry(
+        "tied-within-recorded-bound",
+        "limitation",
+        ("tied-within-recorded-bound",),
+    ),
+    CensusEntry(
+        "unstable-under-recorded-perturbation",
+        "limitation",
+        ("unstable-under-recorded-perturbation",),
+    ),
+    CensusEntry(
+        "requires-recorded-displacement-bound",
+        "limitation",
+        ("requires-recorded-displacement-bound",),
+    ),
+    CensusEntry(
+        "requires-bounded-displacement",
+        "limitation",
+        ("requires-bounded-displacement",),
+    ),
+    CensusEntry(
+        "requires-scorable-shifts",
+        "limitation",
+        ("requires-scorable-shifts",),
+    ),
+    CensusEntry(
+        "missing-comparability-warrant",
+        "limitation",
+        ("missing-comparability-warrant",),
+    ),
+    CensusEntry(
+        "differing-lattice-dimensions",
+        "limitation",
+        ("differing-lattice-dimensions",),
+    ),
+    CensusEntry(
+        "missing-declared-relation",
+        "limitation",
+        ("missing-declared-relation",),
+    ),
+    CensusEntry(
+        "contradictory-relation",
+        "limitation",
+        ("contradictory-relation",),
     ),
 )
 

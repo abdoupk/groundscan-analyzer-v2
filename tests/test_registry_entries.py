@@ -37,7 +37,7 @@ def glossary_headwords() -> set[str]:
 
 def test_every_census_output_carries_one_class() -> None:
     """Each census line names a closed class with members as glossary terms."""
-    assert len(registry.OUTPUT_CENSUS) == 32
+    assert len(registry.OUTPUT_CENSUS) == 44
     for line in registry.OUTPUT_CENSUS:
         assert line.output_class in registry.OUTPUT_CLASSES
 

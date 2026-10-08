@@ -7,7 +7,8 @@
   "frames": [],
   "payload_encoding_version": "payload-encoding-v1",
   "quantity_registry_version": 4,
-  "registry_version": 2,
+  "recurrences": [],
+  "registry_version": 3,
   "scans": [
     {
       "aspect_checks": [],
@@ -332,6 +333,87 @@
       "payload_hash": "b500cdc92d5a205eb5126cb522be5110d347f0ef4ace21e2b2aa8db807df4c4f",
       "perturbation_bound": null,
       "position": 0,
+      "registration": {
+        "accumulation_length": 4,
+        "argmax_dx": null,
+        "argmax_dy": null,
+        "argmax_stable": null,
+        "chance_correlation": 1.0,
+        "chance_dx": 0,
+        "chance_dy": 1,
+        "chance_note": "measures-chance-correspondence-not-real-world-behaviour",
+        "correlation": 1.0,
+        "deterministic_order": "deterministic-order-fixes-report-order-only",
+        "evidence_scope": "self-alignment-only",
+        "exact_tie_tolerance": 8.881784197001256e-16,
+        "margin": 0.0,
+        "margin_drift": null,
+        "passing_means": "well-defined-and-stable-under-recorded-bound",
+        "physical_disclaimer": "never-physically-real",
+        "reason": "non-unique-argmax",
+        "repeat_limitation": "no-independent-repeat-acquisitions",
+        "scored_count": 5,
+        "separation_criterion": "provisional",
+        "separation_reason": "missing-independent-repeat-acquisitions",
+        "shift_count": 9,
+        "shifts": [
+          {
+            "correlation": null,
+            "dx": -1,
+            "dy": -1,
+            "overlap": 1
+          },
+          {
+            "correlation": 1.0,
+            "dx": 0,
+            "dy": -1,
+            "overlap": 2
+          },
+          {
+            "correlation": null,
+            "dx": 1,
+            "dy": -1,
+            "overlap": 1
+          },
+          {
+            "correlation": 1.0,
+            "dx": -1,
+            "dy": 0,
+            "overlap": 2
+          },
+          {
+            "correlation": 1.0,
+            "dx": 0,
+            "dy": 0,
+            "overlap": 4
+          },
+          {
+            "correlation": 1.0,
+            "dx": 1,
+            "dy": 0,
+            "overlap": 2
+          },
+          {
+            "correlation": null,
+            "dx": -1,
+            "dy": 1,
+            "overlap": 1
+          },
+          {
+            "correlation": 1.0,
+            "dx": 0,
+            "dy": 1,
+            "overlap": 2
+          },
+          {
+            "correlation": null,
+            "dx": 1,
+            "dy": 1,
+            "overlap": 1
+          }
+        ],
+        "status": "indeterminate"
+      },
       "robust_scale": {
         "convention": "scale-agreement-v1",
         "disagreement": 0.25,
