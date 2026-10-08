@@ -45,8 +45,9 @@ def api(args: list[str]) -> bytes:
         check=False,
     )
     if result.returncode != 0:
-        sys.stderr.write(result.stderr.decode("utf-8", "replace"))
-        message = f"gh api failed with exit code {result.returncode}"
+        err = result.stderr.decode("utf-8", "replace")
+        sys.stderr.write(err)
+        message = f"gh api failed with exit code {result.returncode}: {err.strip()}"
         raise SystemExit(message)
     return result.stdout
 

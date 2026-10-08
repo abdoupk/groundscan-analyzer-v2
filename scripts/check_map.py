@@ -11,8 +11,12 @@ source with no diagnostic value. That reasoning is about a test whose subject is
 the artefact under test. This check's subject is the *relationship* between two
 systems, which is what a hook is for.
 
-Completes only when all three assertions hold. Fails loudly rather than skipping:
-a gate that skips is a gate that reads as enforcement while enforcing nothing.
+Completes only when all three assertions hold. A real mismatch fails loudly
+rather than skipping: a gate that skips is a gate that reads as enforcement
+while enforcing nothing. An unreachable network is the one exception: with
+no data no assertion can be evaluated either way, so the check reports
+`network-unavailable, skipping map check` and exits zero. Only
+connection-level failures skip; every other `gh` failure still fails loudly.
 
     python scripts/check_map.py
 """
@@ -31,6 +35,29 @@ ISSUE = 1
 
 SECTION_START = "## Open tickets"
 SECTION_END = "## Decisions so far"
+
+NETWORK_MARKERS = (
+    "dial tcp",
+    "connectex",
+    "etimedout",
+    "econnrefused",
+    "econnreset",
+    "temporary failure",
+    "could not resolve",
+    "no such host",
+    "network is unreachable",
+    "failed to connect",
+)
+
+
+def is_network_failure(message: str) -> bool:
+    """Report whether a `gh` failure is the transport, not the tracker.
+
+    Only connection-level failures skip: with no data no assertion can be
+    evaluated either way. Every other `gh` failure still fails loudly.
+    """
+    lowered = message.lower()
+    return any(marker in lowered for marker in NETWORK_MARKERS)
 
 
 def listed_tickets(body: str) -> list[str]:
@@ -62,8 +89,15 @@ def state_of(number: str) -> str:
 
 
 def main() -> int:
-    listed = listed_tickets(fetch_body(REPO, ISSUE).decode("utf-8"))
-    native = open_native_children()
+    try:
+        listed = listed_tickets(fetch_body(REPO, ISSUE).decode("utf-8"))
+        native = open_native_children()
+        closed = [n for n in listed if state_of(n) == "closed"]
+    except SystemExit as exc:
+        if is_network_failure(str(exc.code)):
+            print("network-unavailable, skipping map check")
+            return 0
+        raise
 
     failures: list[str] = []
 
@@ -71,7 +105,6 @@ def main() -> int:
     if duplicates:
         failures.append(f"listed more than once: {', '.join(duplicates)}")
 
-    closed = [n for n in listed if state_of(n) == "closed"]
     if closed:
         failures.append(
             "listed as open but closed on the tracker: "
