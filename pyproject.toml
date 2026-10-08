@@ -200,8 +200,10 @@ exclude = ["docs", "scripts", "venv", '\.venv', '\.direnv', "tests", '\.git', 's
 DEP002 = ["numpy"]
 
 # ---------- vulture ----------
+# verbose stays off: the AST trace floods agent context on every gate run,
+# and findings plus the exit code already carry the verdict.
 [tool.vulture]
 make_whitelist = true
 min_confidence = 80
 sort_by_size = true
-verbose = true
+verbose = false

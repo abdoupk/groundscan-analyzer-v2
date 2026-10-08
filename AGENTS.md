@@ -12,6 +12,8 @@ Plain `uv run` auto-syncs; `--frozen` is used in this repo's commands to avoid r
 
 The shell is PowerShell without Unix utils (`head`, `grep`, bare `python3`, and Unix-style `gh` pipes/quoting all fail); prefer the dedicated file tools and `uv run python`.
 
+The Windows console is cp1256, not UTF-8: never print non-ASCII from inline scripts (unit symbols, arrows); assert or compare values in-process, or write files with the file tools. To list `CONTEXT.md` headwords, write them to a temp file with the file tools and `Read` that file; never print glossary slices inline.
+
 ## Commands
 
 | Task | Command |
