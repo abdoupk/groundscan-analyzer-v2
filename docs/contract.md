@@ -4,7 +4,7 @@ The shipped, versioned home of every closed vocabulary the contract has. The
 module `groundscan_analyzer.property_registry` declares the same five sets;
 this file states them where a reader can see them, so the two cannot drift.
 
-Contract version: 1, Registry version: 1. The two travel once at the document
+Contract version: 1, Registry version: 2. The two travel once at the document
 root, beside each other, so a registry change is never mistakable for a change
 of record shape.
 
@@ -94,15 +94,75 @@ turns them green.
 | `canonical-reference-v1` | which reference rule is of record |
 | `default-numeric-reading-v1` | which numeric reading is of record |
 
+### `grades`
+
+| value | meaning |
+| --- | --- |
+| `exact` | invariance holds identically, proved from construction |
+| `bounded` | deviation is bounded, with the bound derived |
+
+### `warrant-kinds`
+
+| value | meaning |
+| --- | --- |
+| `shared-order-statistic` | a shared order statistic over a census |
+| `transitive-closure` | a transitive closure checkable against the record |
+| `monotonicity` | monotonicity in a quantity the output is compared against |
+| `dominance` | dominance between footprints |
+| `non-constancy-in-metric-scale` | non-constancy in the metric scale, one scalar only |
+| `direct-dependence-on-declared-data` | direct dependence on declared convention data |
+| `reference-relativity` | reference-relativity, not determined by relations alone |
+| `route-independence` | route-independence, reads nothing the convention acts on |
+
+### `evidence-coverage`
+
+| value | meaning |
+| --- | --- |
+| `real-data` | exercised on operator-shaped vendor exports |
+| `synthetic-only` | exercised on manufactured surveys only |
+| `unexercised` | no sweep varies the convention at all |
+
 ## Census
 
 One line per registry output, keyed on the registry rather than on the
 record. Each line carries its class and, where a footprint is a strict
-subset, its members as glossary terms. The census is empty on arrival by
-design: later slices add lines into a closed partition that already rejects
-an unknown class, an unknown member, and an unplaced output.
+subset, its members as glossary terms. A census edit is a semantic
+contract change: added, reclassed or removed alike, it bumps the registry
+version beside the contract version.
 
 <!-- BEGIN VOCABULARY -->
 | output | class | members |
 | --- | --- | --- |
+| `solidity` | `analysis-quantity` |  |
+| `compactness` | `analysis-quantity` |  |
+| `field-area` | `analysis-quantity` | `Field area` |
+| `depth-interval` | `analysis-quantity` |  |
+| `lattice-boundary-contact` | `boundary-evidence` |  |
+| `padding-adjacency-contact` | `boundary-evidence` |  |
+| `component-size-in-cells` | `analysis-quantity` |  |
+| `detection-count` | `hierarchy-structure` |  |
+| `component-count` | `hierarchy-structure` |  |
+| `scan-local-position` | `positional-expression` | `Scan-local position` |
+| `field-position` | `positional-expression` | `Field position`, `Survey position`, `Shared-frame position` |
+| `shared-frame-position` | `positional-expression` | `Survey position`, `Shared-frame position` |
+| `robust-scale` | `analysis-quantity` |  |
+| `median-atom-fraction` | `analysis-quantity` |  |
+| `scale-disagreement` | `analysis-quantity` |  |
+| `scale-tie-tolerance` | `analysis-quantity` |  |
+| `scale-normalised-level` | `analysis-quantity` |  |
+| `payload-hash` | `identity` |  |
+| `frame-identity` | `identity` | `Shared frame` |
+| `lattice` | `lattice-structure` |  |
+| `parent-map` | `hierarchy-structure` |  |
+| `detection-number` | `numbered-presentation` |  |
+| `mask-invariance` | `recorded-fact` | `Effective amplitude` |
+| `frame-relation` | `recorded-fact` | `Frame relation` |
+| `aspect-consistency` | `recorded-fact` | `Aspect consistency` |
+| `requires-declared-extent` | `limitation` | `requires-declared-extent` |
+| `requires-homogeneous-axes` | `limitation` | `requires-homogeneous-axes` |
+| `requires-bounded-perturbation` | `limitation` | `requires-bounded-perturbation` |
+| `requires-recorded-perturbation-bound` | `limitation` | `requires-recorded-perturbation-bound` |
+| `missing-orientation-path` | `limitation` | `missing-orientation-path` |
+| `scale-not-warranted` | `limitation` | `scale-not-warranted` |
+| `scale-not-positive-finite` | `limitation` | `scale-not-positive-finite` |
 <!-- END VOCABULARY -->

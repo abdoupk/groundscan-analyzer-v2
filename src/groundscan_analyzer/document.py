@@ -666,7 +666,7 @@ class Document(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     contract_version: Literal[1] = CONTRACT_VERSION  # type: ignore[assignment]
-    registry_version: Literal[1] = REGISTRY_VERSION  # type: ignore[assignment]
+    registry_version: Literal[2] = REGISTRY_VERSION  # type: ignore[assignment]
     quantity_registry_version: Literal[4] = quantity_registry.QUANTITY_REGISTRY_VERSION  # type: ignore[assignment]
     decimal_separator: Literal["."] = dialect.DECIMAL_SEPARATOR  # type: ignore[assignment]
     convention: Literal["default-numeric-reading-v1"] = dialect.CONVENTION  # type: ignore[assignment]
