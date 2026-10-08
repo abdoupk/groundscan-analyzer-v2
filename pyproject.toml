@@ -193,10 +193,11 @@ exclude = ["docs", "scripts", "venv", '\.venv', '\.direnv', "tests", '\.git', 's
 [tool.deptry.per_rule_ignores]
 # Admitted by the dependency evaluation (#19) for capabilities decided in
 # closed tickets: the data-model package plus the narrowed numeric pair.
-# The input path (#144) imports the data-model package, so only the numeric
-# pair stays declared-but-unimported by decision, not by drift. Scoped to
+# The input path (#144) imports the data-model package, and the robust
+# scale (#133) imports the numeric calibration pair's scipy half, so only
+# numpy stays declared-but-unimported by decision, not by drift. Scoped to
 # exactly this set, so any other DEP002 remains a defect and the gate bites.
-DEP002 = ["numpy", "scipy"]
+DEP002 = ["numpy"]
 
 # ---------- vulture ----------
 [tool.vulture]

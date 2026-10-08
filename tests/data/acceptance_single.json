@@ -6,7 +6,7 @@
   "declared_relations": [],
   "frames": [],
   "payload_encoding_version": "payload-encoding-v1",
-  "quantity_registry_version": 3,
+  "quantity_registry_version": 4,
   "registry_version": 1,
   "scans": [
     {
@@ -318,6 +318,24 @@
       },
       "payload_hash": "b500cdc92d5a205eb5126cb522be5110d347f0ef4ace21e2b2aa8db807df4c4f",
       "position": 0,
+      "robust_scale": {
+        "convention": "scale-agreement-v1",
+        "disagreement": 0.25,
+        "median_atom_denominator": 4,
+        "median_atom_numerator": 0,
+        "quantile_convention": "quantile-v1",
+        "sigma_iqr": 11.119516638792014,
+        "sigma_mad": 14.82602218505602,
+        "status": "disagreement",
+        "tolerance": 7.216449660063526e-16
+      },
+      "scale_normalised_view": {
+        "levels_negative": null,
+        "levels_positive": null,
+        "reason": "scale-not-warranted",
+        "scale": null,
+        "status": "indeterminate"
+      },
       "sections": [
         "Characteristics",
         "Measuring Values",

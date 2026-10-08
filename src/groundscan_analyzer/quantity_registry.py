@@ -23,7 +23,7 @@ from typing import TYPE_CHECKING, NamedTuple
 if TYPE_CHECKING:
     from typing import Final
 
-QUANTITY_REGISTRY_VERSION: Final[int] = 3
+QUANTITY_REGISTRY_VERSION: Final[int] = 4
 
 
 class QuantityEntry(NamedTuple):
@@ -209,5 +209,77 @@ QUANTITIES: Final[tuple[QuantityEntry, ...]] = (
         upper=None,
         upper_inclusive=True,
         owner="groundscan_analyzer.frames",
+    ),
+    QuantityEntry(
+        name="robust-scale",
+        definition="Gaussian-equivalent sigma from median-based estimators "
+        "under one shared calibration.",
+        derivation="Median absolute deviation over the calibration constant "
+        "with the interquartile range over twice it, both from the same "
+        "Phi-inverse at three quarters, estimated per scan from the "
+        "residual field, never per detection.",
+        unit="residual-unit",
+        population="finite residuals",
+        lower=0.0,
+        lower_inclusive=True,
+        upper=None,
+        upper_inclusive=True,
+        owner="groundscan_analyzer.scale",
+    ),
+    QuantityEntry(
+        name="median-atom-fraction",
+        definition="Fraction of the residual field exactly equal to its median.",
+        derivation="Exact numerator over exact denominator with no threshold, "
+        "carried as evidence in its own right rather than inferred from "
+        "two estimates sharing the blind spot.",
+        unit="fraction",
+        population="residual cells equal to the median over finite residuals",
+        lower=0.0,
+        lower_inclusive=True,
+        upper=1.0,
+        upper_inclusive=True,
+        owner="groundscan_analyzer.scale",
+    ),
+    QuantityEntry(
+        name="scale-disagreement",
+        definition="Pinned relative gap between the two sigma estimates.",
+        derivation="Absolute difference over the larger estimate, "
+        "dimensionless and in the unit interval identically, symmetric, "
+        "and exactly invariant to the calibration constant.",
+        unit="ratio",
+        population="scale estimates over finite residuals",
+        lower=0.0,
+        lower_inclusive=True,
+        upper=1.0,
+        upper_inclusive=True,
+        owner="groundscan_analyzer.scale",
+    ),
+    QuantityEntry(
+        name="scale-tie-tolerance",
+        definition="Derived tolerance deciding tie against disagreement.",
+        derivation="Unit roundoff times a parity and modulus term plus the "
+        "field own spread-to-magnitude ratio, never chosen, catching "
+        "exact coincidence and nothing else.",
+        unit="ratio",
+        population="scale estimates over finite residuals",
+        lower=0.0,
+        lower_inclusive=True,
+        upper=None,
+        upper_inclusive=True,
+        owner="groundscan_analyzer.scale",
+    ),
+    QuantityEntry(
+        name="scale-normalised-level",
+        definition="Hierarchy level in sigma units under the agreed scale.",
+        derivation="Raw residual magnitude over the larger estimate where "
+        "the estimates tie within tolerance, withheld otherwise rather "
+        "than emitted with a caveat.",
+        unit="sigma",
+        population="hierarchy levels over finite residuals",
+        lower=None,
+        lower_inclusive=True,
+        upper=None,
+        upper_inclusive=True,
+        owner="groundscan_analyzer.scale",
     ),
 )

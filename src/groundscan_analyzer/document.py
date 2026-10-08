@@ -17,6 +17,7 @@ from typing import Annotated, Literal, NoReturn
 from pydantic import BaseModel, BeforeValidator, ConfigDict, Field
 
 from groundscan_analyzer import background, dialect, frames, hierarchy, quantity_registry
+from groundscan_analyzer import scale as scale_module
 from groundscan_analyzer.property_registry import CONTRACT_VERSION, REGISTRY_VERSION
 
 
@@ -480,6 +481,53 @@ class RowIssue(BaseModel):
     reason: RowReason
 
 
+class RobustScale(BaseModel):
+    """Two robust estimates of one scan residual field with their verdict.
+
+    Both target Gaussian-equivalent sigma from one shared calibration
+    constant, so the two cannot drift apart. Every state records both
+    estimates, and a tie is neither agreement nor disagreement, never
+    silently triggering a fallback. The atom fraction is measured
+    evidence with an exact numerator, an exact denominator and no
+    threshold, naming no mechanism the file does not state. Agreement is
+    asymptotic, never evidence of convergence. The convention and its
+    quantile rule travel here, in scan context, never as configuration.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    convention: Literal["scale-agreement-v1"] = scale_module.CONVENTION  # type: ignore[assignment]
+    quantile_convention: Literal["quantile-v1"] = scale_module.QUANTILE_CONVENTION  # type: ignore[assignment]
+    status: scale_module.ScaleStatus
+    sigma_mad: FiniteOptionalFloat = None
+    sigma_iqr: FiniteOptionalFloat = None
+    disagreement: FiniteOptionalFloat = None
+    tolerance: FiniteOptionalFloat = None
+    median_atom_numerator: int = Field(ge=0)
+    median_atom_denominator: int = Field(ge=0)
+
+
+class ScaleNormalisedView(BaseModel):
+    """Levels in sigma units, withheld unless the scale warrants one.
+
+    The one output depending on the scale, so a contested spread removes
+    only this view. Zero or undefined scale makes it not-emitted with
+    its computation reason; positive but disagreeing estimates make it
+    indeterminate with its warrant reason, since what failed there is a
+    warrant and not a computation. Withheld rather than emitted with a
+    caveat, its absence being the verdict. A thin sample is still
+    emitted, sufficiency being the consumer judgement.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    status: Literal["emitted", "not-emitted", "indeterminate"]
+    reason: scale_module.ScaleViewReason | None = None
+    scale: FiniteOptionalFloat = None
+    levels_positive: list[FiniteFloat] | None = None
+    levels_negative: list[FiniteFloat] | None = None
+
+
 class ScanRead(BaseModel):
     """A scan the contract accepted, carrying its lattice and responses.
 
@@ -496,6 +544,8 @@ class ScanRead(BaseModel):
     lattice: Lattice
     cells: list[Cell]
     background_model: BackgroundModel
+    robust_scale: RobustScale
+    scale_normalised_view: ScaleNormalisedView
     hierarchy: Hierarchy
     extent: Extent
     latitude_presence: PresenceState
@@ -526,7 +576,7 @@ class Document(BaseModel):
 
     contract_version: Literal[1] = CONTRACT_VERSION  # type: ignore[assignment]
     registry_version: Literal[1] = REGISTRY_VERSION  # type: ignore[assignment]
-    quantity_registry_version: Literal[3] = quantity_registry.QUANTITY_REGISTRY_VERSION  # type: ignore[assignment]
+    quantity_registry_version: Literal[4] = quantity_registry.QUANTITY_REGISTRY_VERSION  # type: ignore[assignment]
     decimal_separator: Literal["."] = dialect.DECIMAL_SEPARATOR  # type: ignore[assignment]
     convention: Literal["default-numeric-reading-v1"] = dialect.CONVENTION  # type: ignore[assignment]
     payload_encoding_version: Literal["payload-encoding-v1"] = frames.PAYLOAD_ENCODING  # type: ignore[assignment]

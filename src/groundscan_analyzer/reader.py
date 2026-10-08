@@ -11,6 +11,7 @@ violation is per scan, and each failing row carries exactly one reason.
 from __future__ import annotations
 
 from collections import Counter
+import math
 import re
 from typing import TYPE_CHECKING, Literal, NamedTuple
 
@@ -23,6 +24,7 @@ from groundscan_analyzer import (
     hierarchy,
     input_contract,
     positions,
+    scale,
 )
 
 if TYPE_CHECKING:
@@ -1143,6 +1145,162 @@ def _read_hierarchy(
     )
 
 
+def _read_robust_scale(remaining: dict[tuple[int, int], float]) -> document.RobustScale:
+    """Estimate the robust scale of one scan residual field.
+
+    The scale comes from the residual field per scan, never per
+    detection, so a level never depends on a detection. Both estimators
+    target sigma from one shared calibration, the atom fraction travels
+    exact, and a tie stays a tie rather than triggering a fallback.
+
+    Args:
+        remaining: The residual per measured coordinate, in original units.
+
+    Returns:
+        The scale record with both estimates and its verdict.
+    """
+    result = scale.estimate(list(remaining.values()))
+    return document.RobustScale(
+        status=result.status,
+        sigma_mad=result.sigma_mad,
+        sigma_iqr=result.sigma_iqr,
+        disagreement=result.disagreement,
+        tolerance=result.tolerance,
+        median_atom_numerator=result.median_atom_numerator,
+        median_atom_denominator=result.median_atom_denominator,
+    )
+
+
+def _normalised_or_none(levels: tuple[float, ...], agreed: float) -> list[float] | None:
+    """Normalise one polarity levels, None where unrepresentable.
+
+    Args:
+        levels: The raw residual magnitudes of one polarity.
+        agreed: The agreed positive finite scale.
+
+    Returns:
+        The levels in sigma units, or None when any quotient is not
+        finite, so no non-finite value is ever representable.
+    """
+    normalised = [level / agreed for level in levels]
+    if all(math.isfinite(value) for value in normalised):
+        return normalised
+    return None
+
+
+def _tie_view(
+    tree: hierarchy.HierarchyData, sigma_mad: float | None, sigma_iqr: float | None
+) -> document.ScaleNormalisedView:
+    """Emit the view on a tie, or withhold where it cannot be performed.
+
+    Args:
+        tree: The built tree with its raw residual levels.
+        sigma_mad: The median estimate, possibly undefined.
+        sigma_iqr: The interquartile estimate, possibly undefined.
+
+    Returns:
+        The emitted view with normalised levels, or the not-emitted
+        view where no positive finite scale exists to divide by.
+    """
+    if sigma_mad is None or sigma_iqr is None:
+        return document.ScaleNormalisedView(
+            status="not-emitted", reason="scale-not-positive-finite"
+        )
+    agreed = max(sigma_mad, sigma_iqr)
+    if not (agreed > 0.0 and math.isfinite(agreed)):
+        return document.ScaleNormalisedView(
+            status="not-emitted", reason="scale-not-positive-finite"
+        )
+    positive = _normalised_or_none(tuple(tree.levels_positive), agreed)
+    negative = _normalised_or_none(tuple(tree.levels_negative), agreed)
+    if positive is None or negative is None:
+        return document.ScaleNormalisedView(
+            status="not-emitted", reason="scale-not-positive-finite"
+        )
+    return document.ScaleNormalisedView(
+        status="emitted",
+        scale=agreed,
+        levels_positive=positive,
+        levels_negative=negative,
+    )
+
+
+def _withheld_view(status: scale.ScaleStatus) -> document.ScaleNormalisedView:
+    """Return the withheld view for a non-tie scale status.
+
+    Args:
+        status: The scale verdict deciding the reason.
+
+    Returns:
+        The not-emitted view where the scale is zero or undefined, and
+        the indeterminate view where positive estimates disagree, since
+        what failed there is a warrant and not a computation.
+    """
+    if status in {"no-finite-residual-values", "constant-field", "median-atom-zero-scale"}:
+        return document.ScaleNormalisedView(
+            status="not-emitted", reason="scale-not-positive-finite"
+        )
+    return document.ScaleNormalisedView(status="indeterminate", reason="scale-not-warranted")
+
+
+def _read_scale_view(
+    tree: hierarchy.HierarchyData, result: scale.ScaleResult
+) -> document.ScaleNormalisedView:
+    """Withhold or emit the scale-normalised view for one scan.
+
+    Zero or undefined scale makes it not-emitted with its computation
+    reason; positive but disagreeing estimates make it indeterminate
+    with its warrant reason, since what failed there is a warrant and
+    not a computation. Only a tie emits, and agreement is never recorded
+    as evidence of convergence. Nothing else depends on the scale.
+
+    Args:
+        tree: The built tree with its raw residual levels.
+        result: The scale record deciding the view.
+
+    Returns:
+        The view, emitted with normalised levels or withheld with its
+        named reason.
+    """
+    if result.status == "tie":
+        return _tie_view(tree, result.sigma_mad, result.sigma_iqr)
+    return _withheld_view(result.status)
+
+
+def _raise_on_issues(table: _Table) -> None:
+    """Refuse the scan where any row fails, naming the first failure.
+
+    Args:
+        table: The evaluated measuring block with its row issues.
+
+    Raises:
+        _RefusalError: Carrying the first failing reason with the full
+            row breakdown, so one defect never arrives as a pile.
+    """
+    if table.issues:
+        first = table.issues[0]
+        detail = f"{len(table.issues)} failing rows, first at line {first.line}"
+        raise _RefusalError(first.reason, detail, tuple(table.issues))
+
+
+def _header_line(measuring: _Block) -> str:
+    """Return the measuring header line, refusing an empty block.
+
+    Args:
+        measuring: The measuring section with its content lines.
+
+    Returns:
+        The raw header line.
+
+    Raises:
+        _RefusalError: When the block carries no header at all.
+    """
+    if not measuring.lines:
+        detail = "Measuring Values carries no header"
+        raise _RefusalError(_MISSING_REQUIRED, detail, ())
+    return measuring.lines[0][1]
+
+
 def _read_scan_inner(text: str, position: int) -> document.ScanRead | document.ScanRefused:
     """Read one decoded export through both registries to its record.
 
@@ -1152,16 +1310,10 @@ def _read_scan_inner(text: str, position: int) -> document.ScanRead | document.S
 
     Returns:
         The read record, or the refusal with its reason and row breakdown.
-
-    Raises:
-        _RefusalError: Any per-scan violation, converted by the caller.
     """
     blocks = _collect_sections(text.splitlines())
     measuring = blocks[MEASURING_KEY]
-    if not measuring.lines:
-        detail = "Measuring Values carries no header"
-        raise _RefusalError(_MISSING_REQUIRED, detail, ())
-    header_line = measuring.lines[0][1]
+    header_line = _header_line(measuring)
     delimiter = _choose_delimiter(header_line)
     header_cells = header_line.split(delimiter)
     entries = _map_columns(header_cells)
@@ -1170,14 +1322,13 @@ def _read_scan_inner(text: str, position: int) -> document.ScanRead | document.S
     _check_soil(blocks)
     _check_row_commas(measuring.lines[1:], delimiter, layout)
     table = _evaluate_rows(measuring.lines[1:], delimiter, len(header_cells), layout)
-    if table.issues:
-        first = table.issues[0]
-        detail = f"{len(table.issues)} failing rows, first at line {first.line}"
-        raise _RefusalError(first.reason, detail, tuple(table.issues))
+    _raise_on_issues(table)
     impulses = sorted({row.impulse for row in table.rows})
     scan_lines = sorted({row.scan_line for row in table.rows})
     remaining = _residual_map(table.rows)
     context = _detection_context(table.rows, extent, impulses, scan_lines)
+    built = hierarchy.build(remaining)
+    shape = scale.estimate(list(remaining.values()))
     return document.ScanRead(
         status="read",
         position=position,
@@ -1186,7 +1337,9 @@ def _read_scan_inner(text: str, position: int) -> document.ScanRead | document.S
         lattice=document.Lattice(impulses=impulses, scan_lines=scan_lines),
         cells=_read_cells(table.rows, remaining),
         background_model=document.BackgroundModel(),
-        hierarchy=_read_hierarchy(hierarchy.build(remaining), context),
+        robust_scale=_read_robust_scale(remaining),
+        scale_normalised_view=_read_scale_view(built, shape),
+        hierarchy=_read_hierarchy(built, context),
         extent=extent,
         latitude_presence=_presence(layout.latitude, has_value=table.latitude_value),
         longitude_presence=_presence(layout.longitude, has_value=table.longitude_value),

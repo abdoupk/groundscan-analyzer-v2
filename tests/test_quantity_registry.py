@@ -126,6 +126,20 @@ def field_kinds() -> dict[FieldRef, str | None]:
         ("AspectVerdict", "relation"): None,
         ("AspectVerdict", "verdict"): None,
         ("AspectVerdict", "note"): None,
+        ("RobustScale", "convention"): None,
+        ("RobustScale", "quantile_convention"): None,
+        ("RobustScale", "status"): None,
+        ("RobustScale", "sigma_mad"): "robust-scale",
+        ("RobustScale", "sigma_iqr"): "robust-scale",
+        ("RobustScale", "disagreement"): "scale-disagreement",
+        ("RobustScale", "tolerance"): "scale-tie-tolerance",
+        ("RobustScale", "median_atom_numerator"): "median-atom-fraction",
+        ("RobustScale", "median_atom_denominator"): "median-atom-fraction",
+        ("ScaleNormalisedView", "status"): None,
+        ("ScaleNormalisedView", "reason"): None,
+        ("ScaleNormalisedView", "scale"): "robust-scale",
+        ("ScaleNormalisedView", "levels_positive"): "scale-normalised-level",
+        ("ScaleNormalisedView", "levels_negative"): "scale-normalised-level",
     }
     models: dict[str, type[BaseModel]] = {
         "Detection": document.Detection,
@@ -146,6 +160,8 @@ def field_kinds() -> dict[FieldRef, str | None]:
         "Frame": document.Frame,
         "Contradiction": document.Contradiction,
         "AspectVerdict": document.AspectVerdict,
+        "RobustScale": document.RobustScale,
+        "ScaleNormalisedView": document.ScaleNormalisedView,
     }
     seen = {(name, field) for name, model in models.items() for field in model.model_fields}
     assert seen == set(kinds), f"unclassified record fields: {seen ^ set(kinds)}"
@@ -154,10 +170,10 @@ def field_kinds() -> dict[FieldRef, str | None]:
 
 def test_registry_is_versioned_and_closed() -> None:
     """One version, unique names, unique owners per quantity."""
-    assert quantity_registry.QUANTITY_REGISTRY_VERSION == 3
+    assert quantity_registry.QUANTITY_REGISTRY_VERSION == 4
     names = [entry.name for entry in quantity_registry.QUANTITIES]
     assert len(names) == len(set(names))
-    assert len(names) == 12
+    assert len(names) == 17
 
 
 def test_every_quantity_has_exactly_one_entry() -> None:
