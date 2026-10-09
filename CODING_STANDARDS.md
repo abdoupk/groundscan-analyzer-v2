@@ -25,3 +25,13 @@ this bar before, and what each owed:
 Where the failing input cannot be constructed, say so in the test name
 or a comment, and assert the weaker property honestly rather than
 dressing it as the stronger one.
+
+## Glossary drift scopes to the concept's domain
+
+An `_Avoid_` line bans a synonym for the concept its entry defines, not
+the bare word everywhere. Before flagging drift, check whether the
+identifier maps 1:1 to the record's own field name or an established
+seam convention (`document.ScanRead.position` and the intake-position
+convention across `reader.py`, `frames.py`, and `cli.py` are the
+standing precedent: intake ordinals, never spatial positions). Rename
+only genuine drift toward the avoided synonym.

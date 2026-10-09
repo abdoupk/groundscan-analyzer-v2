@@ -33,7 +33,7 @@ The Windows console is cp1256, not UTF-8: never print non-ASCII from inline scri
 
 Run gates in this order: `ruff format` → `ruff check` → `mypy` → `pytest`.
 
-Bumping a registry version also means bumping its `Document` literal and regenerating `tests/data/*.json` via `document.dumps`; only a full `pytest` proves it, never a focused file.
+Bumping a registry version also means bumping its `Document` literal and regenerating `tests/data/*.json` via `document.dumps`; only a full `pytest` proves it, never a focused file. Shape changes that only add defaulted fields regenerate the JSONs with no contract bump (`CONTRACT_VERSION` is still 1 after #130–#141).
 
 There is still no CI. There **is** a `.pre-commit-config.yaml`, which runs the cheap gates on every commit: `ruff format` → `ruff check` → `vulture src` → `mypy` → `pytest` → `scripts/check_map.py` → `deptry .`. Two more are wired up but off the commit path, on the `manual` stage, because they cost minutes or need the network:
 
@@ -91,7 +91,7 @@ uv run pre-commit run --hook-stage manual --all-files
 
 ## Implementing an engine slice
 
-Read the ticket body, then #127's Implementation Decisions, then the `CONTEXT.md` entries they cite; on conflict the ticket wins. `docs/legacy/` is archaeology: read and cite it, never import it.
+Read the ticket body, then the `CONTEXT.md` entries it cites; on conflict the ticket wins. (#127 carries no separate Implementation Decisions comment — its body is the decision record.) `docs/legacy/` is archaeology: read and cite it, never import it.
 
 ## Agent skills
 
