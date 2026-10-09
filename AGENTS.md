@@ -10,7 +10,7 @@ uv sync                 # creates .venv (Python pinned by .python-version: 3.13)
 
 Plain `uv run` auto-syncs; `--frozen` is used in this repo's commands to avoid re-resolving. Never `pip install` into `.venv`.
 
-The shell is PowerShell without Unix utils (`head`, `grep`, bare `python3`, and Unix-style `gh` pipes/quoting all fail); prefer the dedicated file tools and `uv run python`.
+The shell is PowerShell without Unix utils (`head`, `grep`, bare `python3`, and Unix-style `gh` pipes/quoting all fail); prefer the dedicated file tools and `uv run python`. Never pass `--jq` filter expressions containing spaces, pipes, or quotes to `gh`; use `--json` plus `ConvertFrom-Json`/`Select-Object`, or save output to a file and `Read` it. Scope every content search with `path` and `include`; unscoped searches return truncated 100-match floods that burn context.
 
 The Windows console is cp1256, not UTF-8: never print non-ASCII from inline scripts (unit symbols, arrows); assert or compare values in-process, or write files with the file tools. To list `CONTEXT.md` headwords, write them to a temp file with the file tools and `Read` that file; never print glossary slices inline.
 
@@ -91,7 +91,7 @@ uv run pre-commit run --hook-stage manual --all-files
 
 ## Implementing an engine slice
 
-Read the ticket body, then the `CONTEXT.md` entries it cites; on conflict the ticket wins. (#127 carries no separate Implementation Decisions comment — its body is the decision record.) `docs/legacy/` is archaeology: read and cite it, never import it.
+Read the ticket body, then the `CONTEXT.md` entries it cites; on conflict the ticket wins. (#127 carries no separate Implementation Decisions comment — its body is the decision record.) `docs/legacy/` is archaeology: read and cite it, never import it. The nine vendor exports live at `docs/legacy/scans/vendor_demo` (committed); the compatibility gate reads them via `GROUNDSCAN_CORPUS_ROOT` and never commits corpus.
 
 ## Agent skills
 
