@@ -48,6 +48,9 @@ def _emit(doc: document.Document) -> int:
 def _run_scan(args: argparse.Namespace) -> int:
     """Analyse one scan from its named export.
 
+    The real loader asserts the operator source: no flag accepts the
+    fixture label, so a synthetic declaration can never enter here.
+
     Args:
         args: The parsed arguments, carrying the named scan export.
 
@@ -64,6 +67,7 @@ def _run_scan(args: argparse.Namespace) -> int:
                 [content],
                 perturbation_bounds=[args.perturbation],
                 displacement_bounds=[args.displacement],
+                assertion_sources=[document.OPERATOR_SOURCE],
             )
         )
     except reader.RunLevelError as exc:
@@ -411,7 +415,8 @@ def _run_survey(args: argparse.Namespace) -> int:
 
     The named scans are handled in sorted order so the same survey reads
     the same way regardless of argument or filesystem order. Names are
-    opaque intake tokens: no scan relation is inferred from them. One bad
+    opaque intake tokens: no scan relation is inferred from them. The
+    real loader asserts the operator source for every scan. One bad
     scan among several refuses only that scan; a run-level failure stops
     the run instead.
 
@@ -441,6 +446,7 @@ def _run_survey(args: argparse.Namespace) -> int:
                 args.relate,
                 perturbation_bounds=perturbation_bounds,
                 displacement_bounds=displacement_bounds,
+                assertion_sources=[document.OPERATOR_SOURCE for _ in contents],
             )
         )
     except reader.RunLevelError as exc:

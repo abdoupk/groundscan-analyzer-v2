@@ -186,6 +186,7 @@
                 "scan_line": 2
               }
             ],
+            "limitations": [],
             "no_field_position_reason": null,
             "no_shared_position_reason": "missing-orientation-path",
             "number": 2,
@@ -271,6 +272,7 @@
                 "scan_line": 1
               }
             ],
+            "limitations": [],
             "no_field_position_reason": null,
             "no_shared_position_reason": "missing-orientation-path",
             "number": 1,

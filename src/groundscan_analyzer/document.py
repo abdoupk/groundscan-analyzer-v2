@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import json
 import math
-from typing import Annotated, Literal, NoReturn
+from typing import Annotated, Final, Literal, NoReturn
 
 from pydantic import BaseModel, BeforeValidator, ConfigDict, Field
 
@@ -81,6 +81,18 @@ DiscrepancyKind = Literal["index-origin", "metric-origin", "short-line"]
 
 PresenceState = Literal["absent", "present-but-empty", "present-with-value"]
 
+AssertionSource = Literal["operator-asserted", "fixture-asserted"]
+
+ClaimLimitation = Literal["fixture-asserted-declaration"]
+
+OPERATOR_SOURCE: AssertionSource = "operator-asserted"
+
+FIXTURE_SOURCE: AssertionSource = "fixture-asserted"
+
+ASSERTION_SOURCES: Final[tuple[str, str]] = (OPERATOR_SOURCE, FIXTURE_SOURCE)
+
+FIXTURE_LIMITATION: ClaimLimitation = "fixture-asserted-declaration"
+
 
 class Lattice(BaseModel):
     """The observed lattice: exactly the set of indices the file contains."""
@@ -147,9 +159,11 @@ class DetectionCell(BaseModel):
 class Scale(BaseModel):
     """One field axis pitch with both its inputs named and provenanced.
 
-    The declared span as an operator assertion with the observed count as
+    The declared span as an assertion with the observed count as
     a device index, and the scale their quotient, which tells a reader
-    which input to distrust. The scale travels inside the position and
+    which input to distrust. The span source is fixed at the entry point,
+    operator-asserted on the real path and fixture-asserted on the
+    synthetic one. The scale travels inside the position and
     nowhere else: a bare figure in units with no frame attached is
     impossible in the type.
     """
@@ -157,7 +171,7 @@ class Scale(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     span: FiniteFloat
-    span_provenance: Literal["operator-asserted"] = "operator-asserted"
+    span_provenance: AssertionSource = "operator-asserted"
     count: int = Field(ge=1)
     count_provenance: Literal["device-index"] = "device-index"
     quotient: FiniteFloat
@@ -248,7 +262,9 @@ class Detection(BaseModel):
     Solidity, compactness, field area, depth and boundary contact are
     carried together as pitch-invariant index-space ratios, each
     computable where no extent was declared except field area, which is
-    withheld with its cause where it cannot be stated.
+    withheld with its cause where it cannot be stated. Limitations travel
+    with the claim they qualify, present even when empty: a claim whose
+    warrant rests on a fixture-asserted declaration carries it by name.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -272,6 +288,7 @@ class Detection(BaseModel):
     scan_payload_hash: str
     shared_frame_position: SharedFramePosition | None
     no_shared_position_reason: NoSharedReason | None = None
+    limitations: tuple[ClaimLimitation, ...] = ()
 
 
 class SharedScale(BaseModel):
@@ -325,13 +342,20 @@ class SharedFramePosition(BaseModel):
 
 
 class DeclaredRelation(BaseModel):
-    """One operator declaration over sorted intake positions, verbatim."""
+    """One declaration over sorted intake positions, verbatim with its source.
+
+    The source is fixed at the entry point: the real loader records
+    ``operator-asserted``, the synthetic harness records
+    ``fixture-asserted``, and the engine carries either without deciding
+    between them from the file.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
     first: int = Field(ge=0)
     second: int = Field(ge=0)
     relation: Literal["same", "opposite", "90-clockwise", "90-counter-clockwise"]
+    source: AssertionSource = "operator-asserted"
 
 
 class FrameRelation(BaseModel):
@@ -350,6 +374,9 @@ class Frame(BaseModel):
     chose it, with a human-readable label beside it that never
     participates in selection. Each scan's measurements stay in its own
     lattice: the frame relates them without combining a single cell.
+    Limitations travel with the frame they qualify, present even when
+    empty: a frame composed over fixture-asserted declarations carries it
+    by name.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -358,6 +385,7 @@ class Frame(BaseModel):
     label: str
     members: list[int]
     relations: list[FrameRelation]
+    limitations: tuple[ClaimLimitation, ...] = ()
 
 
 class Contradiction(BaseModel):

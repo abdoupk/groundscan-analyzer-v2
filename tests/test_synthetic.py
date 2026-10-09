@@ -14,6 +14,7 @@ import hashlib
 import inspect
 import json
 from pathlib import Path
+import typing
 
 import pytest
 
@@ -31,6 +32,24 @@ GENERATOR_FNS = (
     synthetic.make_export,
     synthetic.center_of_scan,
     synthetic.oracle_express,
+    synthetic._header_for,
+    synthetic._cell_text,
+    synthetic._row_line,
+    synthetic._square_at,
+    synthetic._wrap,
+    synthetic._perp_equal,
+    synthetic._perp_unequal,
+    synthetic._missing,
+    synthetic._contradictory,
+    synthetic._contradictory_mirror,
+    synthetic._closing,
+    synthetic._signed_cw,
+    synthetic._signed_ccw,
+    synthetic._reversal,
+    synthetic._single_empty,
+    synthetic._presence_absent,
+    synthetic._presence_empty,
+    synthetic._presence_value,
 )
 
 
@@ -131,45 +150,213 @@ def test_every_assertion_carries_fixture_source_at_entry() -> None:
         assert len(doc.scans) == len(case.specs)
 
 
-def test_engine_never_assigns_fixture_source() -> None:
-    """No engine module names the fixture source, so no file can claim it.
+def test_synthetic_scales_carry_fixture_source() -> None:
+    """Synthetic extents read as fixture-asserted, never operator-asserted.
 
-    Failing input: `reader.py` containing the string `fixture-asserted`.
+    Failing input: a synthetic document recording `operator-asserted` spans.
     """
+    _, doc = case_doc("perp-equal")
+    for position in (0, 1):
+        for detection in read_scan(doc, position).hierarchy.detections:
+            assert detection.field_position is not None
+            for axis in (
+                detection.field_position.along_line,
+                detection.field_position.across_lines,
+            ):
+                assert axis.scale.span_provenance == synthetic.FIXTURE_SOURCE
+    control = reader.read_document(list(synthetic.exports_of(build_required_cases()["perp-equal"])))
+    for detection in read_scan(control, 0).hierarchy.detections:
+        assert detection.field_position is not None
+        assert (
+            detection.field_position.along_line.scale.span_provenance == synthetic.OPERATOR_SOURCE
+        )
+
+
+def test_declared_relations_carry_entry_source() -> None:
+    """Relations echo with the loader source, fixture on the synthetic path.
+
+    Failing input: a synthetic relation echoing `operator-asserted`.
+    """
+    _, doc = case_doc("contradictory")
+    assert doc.declared_relations != []
+    for declared in doc.declared_relations:
+        assert declared.source == synthetic.FIXTURE_SOURCE
+    control = reader.read_document(
+        list(synthetic.exports_of(build_required_cases()["contradictory"])),
+        [frames.Relation(0, 1, "same")],
+    )
+    for declared in control.declared_relations:
+        assert declared.source == synthetic.OPERATOR_SOURCE
+
+
+def code_strings(path: Path) -> list[str]:
+    """Non-docstring string constants in one module.
+
+    Docstrings are prose, not values the engine can assign: the check
+    mirrors the vocabulary lint's docstring exclusion rather than
+    grepping file text.
+
+    Args:
+        path: The module file to read.
+
+    Returns:
+        The code string constants in walk order.
+    """
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    docstrings: set[int] = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        body = node.body
+        if (
+            body
+            and isinstance(body[0], ast.Expr)
+            and isinstance(body[0].value, ast.Constant)
+            and isinstance(body[0].value.value, str)
+        ):
+            docstrings.add(id(body[0].value))
+    return [
+        node.value
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Constant)
+        and isinstance(node.value, str)
+        and id(node) not in docstrings
+    ]
+
+
+def test_sources_live_in_contract_vocabulary_only() -> None:
+    """The closed source vocabulary is declared once; files cannot claim one.
+
+    Failing input: `reader.py` deciding a source from file content.
+    """
+    assert set(typing.get_args(document.AssertionSource)) == {
+        synthetic.OPERATOR_SOURCE,
+        synthetic.FIXTURE_SOURCE,
+    }
     repo = Path(__file__).resolve().parents[1] / "src" / "groundscan_analyzer"
-    engine = ("reader.py", "frames.py", "positions.py", "document.py", "cli.py")
-    for filename in engine:
+    for filename in ("frames.py", "positions.py", "cli.py"):
         text = (repo / filename).read_text(encoding="utf-8")
         assert "fixture-asserted" not in text, filename
+    assert not [text for text in code_strings(repo / "reader.py") if "fixture-asserted" in text]
+    harness = (repo / "synthetic.py").read_text(encoding="utf-8")
+    assert "document_module.FIXTURE_SOURCE" in harness
+    labelled = synthetic.make_export(build_required_cases()["single-empty"].specs[0])
+    labelled = labelled.replace(b"Field Width:", b"Notes: fixture-asserted\nField Width:")
+    doc = reader.read_document([labelled])
+    for detection in read_scan(doc, 0).hierarchy.detections:
+        assert detection.field_position is not None
+        assert (
+            detection.field_position.along_line.scale.span_provenance == synthetic.OPERATOR_SOURCE
+        )
 
 
-def test_operator_entry_points_accept_no_fixture_source() -> None:
-    """The operator surface takes no source argument at all.
+def test_operator_entry_points_accept_no_fixture_label() -> None:
+    """The operator surface takes no source argument and asserts operator.
 
-    Failing input: read_document(contents, fixture_source equals fixture-asserted).
+    Failing input: a `--source fixture-asserted` flag on the command line.
     """
-    assert "fixture" not in inspect.signature(reader.read_document).parameters
     assert "fixture" not in inspect.signature(main).parameters
+    assert "source" not in inspect.signature(main).parameters
+    assert "assertion_sources" not in inspect.signature(main).parameters
 
 
-def test_engine_never_sets_fixture_limitation() -> None:
-    """No engine module names the fixture limitation either.
+def test_real_loader_asserts_operator_source(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Command-line reads record operator spans with no limitations.
 
-    Failing input: `document.py` emitting `fixture-asserted-declaration` itself.
+    Failing input: a CLI document recording fixture spans.
     """
+    export = tmp_path / "operator-export.txt"
+    export.write_bytes(synthetic.exports_of(build_required_cases()["single-empty"])[0])
+    assert main(["scan", str(export)]) == 0
+    doc = document.loads(capsys.readouterr().out)
+    for detection in read_scan(doc, 0).hierarchy.detections:
+        assert detection.field_position is not None
+        assert (
+            detection.field_position.along_line.scale.span_provenance == synthetic.OPERATOR_SOURCE
+        )
+        assert set(detection.limitations) == set()
+
+
+def test_engine_carries_limitation_by_rule_not_content() -> None:
+    """The limitation literal lives in the contract; the engine only carries it.
+
+    Failing input: `reader.py` containing `fixture-asserted-declaration`.
+    """
+    assert list(typing.get_args(document.ClaimLimitation)) == [synthetic.FIXTURE_LIMITATION]
     repo = Path(__file__).resolve().parents[1] / "src" / "groundscan_analyzer"
-    for filename in ("reader.py", "frames.py", "positions.py", "document.py", "cli.py"):
+    for filename in ("reader.py", "frames.py", "positions.py", "cli.py", "synthetic.py"):
         text = (repo / filename).read_text(encoding="utf-8")
-        assert synthetic.FIXTURE_LIMITATION not in text, filename
+        assert "fixture-asserted-declaration" not in text, filename
 
 
 def test_limitations_name_fixture_source_by_exact_set_equality() -> None:
-    """Each case limitations equal the singleton, never a filtered projection.
+    """Each detection and frame limitation equals the singleton on the record.
 
-    Failing input: a case carrying an extra limitation, or none at all.
+    Failing input: a synthetic detection carrying no limitation at all.
     """
     for name, case in build_required_cases().items():
         assert set(synthetic.case_limitations(case)) == {synthetic.FIXTURE_LIMITATION}, name
+        _, doc = case_doc(name)
+        for position in range(len(doc.scans)):
+            for detection in read_scan(doc, position).hierarchy.detections:
+                assert set(detection.limitations) == {synthetic.FIXTURE_LIMITATION}, name
+        for frame in doc.frames:
+            assert set(frame.limitations) == {synthetic.FIXTURE_LIMITATION}, name
+
+
+def test_operator_documents_carry_empty_limitations() -> None:
+    """Operator-path claims state no limitations rather than leaving them out.
+
+    Failing input: an operator detection carrying the fixture limitation.
+    """
+    doc = reader.read_document(
+        list(synthetic.exports_of(build_required_cases()["perp-equal"])),
+        [frames.Relation(0, 1, "90-clockwise")],
+    )
+    assert doc.frames != []
+    for position in (0, 1):
+        for detection in read_scan(doc, position).hierarchy.detections:
+            assert set(detection.limitations) == set()
+    for frame in doc.frames:
+        assert set(frame.limitations) == set()
+
+
+def test_mixed_sources_coexist_with_over_caveating() -> None:
+    """Sources may coexist; any fixture touch caves the shared claim.
+
+    Failing input: a mixed relation echoing `operator-asserted`.
+    """
+    exports = list(synthetic.exports_of(build_required_cases()["perp-equal"]))
+    doc = reader.read_document(
+        exports,
+        [frames.Relation(0, 1, "90-clockwise")],
+        assertion_sources=[synthetic.OPERATOR_SOURCE, synthetic.FIXTURE_SOURCE],
+    )
+    first_spans = {
+        detection.field_position.along_line.scale.span_provenance
+        for detection in read_scan(doc, 0).hierarchy.detections
+        if detection.field_position is not None
+    }
+    second_spans = {
+        detection.field_position.along_line.scale.span_provenance
+        for detection in read_scan(doc, 1).hierarchy.detections
+        if detection.field_position is not None
+    }
+    assert first_spans == {synthetic.OPERATOR_SOURCE}
+    assert second_spans == {synthetic.FIXTURE_SOURCE}
+    assert [declared.source for declared in doc.declared_relations] == [synthetic.FIXTURE_SOURCE]
+    assert [set(frame.limitations) for frame in doc.frames] == [{synthetic.FIXTURE_LIMITATION}]
+    assert {
+        limitation
+        for detection in read_scan(doc, 0).hierarchy.detections
+        for limitation in detection.limitations
+    } == set()
+    with pytest.raises(ValueError, match="assertion sources name no scan"):
+        reader.read_document(exports, assertion_sources=[synthetic.FIXTURE_SOURCE])
+    with pytest.raises(ValueError, match="unknown assertion source"):
+        reader.read_document(exports, assertion_sources=["someone-said-it", "someone-said-it"])
 
 
 def test_perpendicular_equal_pitches() -> None:
@@ -243,6 +430,33 @@ def test_contradictory_withdraws_component_only() -> None:
     for position in (3, 4):
         for detection in read_scan(doc, position).hierarchy.detections:
             assert detection.shared_frame_position is not None
+
+
+def test_contradictory_mirror_withdraws_component_only() -> None:
+    """The odd-class mirror disagrees while the untouched pair stays framed.
+
+    Failing input: a mirror declaring `same` on the closing edge, closing
+    where it must contradict.
+    """
+    _, doc = case_doc("contradictory-mirror")
+    assert len(doc.contradictions) == 1
+    edge = doc.contradictions[0]
+    assert (edge.first, edge.second, edge.relation) == (0, 2, "same")
+    assert edge.declared_class == 0
+    assert edge.expected_class == 2
+    assert len(doc.frames) == 1
+    assert doc.frames[0].members == [3, 4]
+    for position in (0, 1, 2):
+        for detection in read_scan(doc, position).hierarchy.detections:
+            assert detection.shared_frame_position is None
+            assert detection.no_shared_position_reason == "withdrawn-component"
+    for position in (3, 4):
+        for detection in read_scan(doc, position).hierarchy.detections:
+            assert detection.shared_frame_position is not None
+    _, even = case_doc("contradictory")
+    assert {r.relation for r in even.declared_relations} != {
+        r.relation for r in doc.declared_relations
+    }
 
 
 def test_closing_cycle_closes() -> None:
@@ -381,6 +595,59 @@ def test_vacuity_reports_in_own_vocabulary() -> None:
         synthetic.require_detections_away_from_fixed_points(doc, case)
 
 
+def doc_with_detection_cells(
+    doc: document.Document, position: int, cells: list[tuple[int, int]]
+) -> document.Document:
+    """Rebuild one survey document with fabricated detection cells.
+
+    The fabrication isolates the cell-collection rule from background
+    behaviour: count, location, size and polarity are out of scope, so
+    only which cells the check reads matters.
+
+    Args:
+        doc: The survey document over the synthetic exports.
+        position: The intake position whose detections to replace.
+        cells: The fabricated lattice cells for the first detection.
+
+    Returns:
+        The document carrying the fabricated first detection.
+    """
+    scan = read_scan(doc, position)
+    first = scan.hierarchy.detections[0]
+    rebuilt = document.Detection(**{
+        **first.model_dump(),
+        "cells": [
+            document.DetectionCell(impulse=impulse, scan_line=line) for impulse, line in cells
+        ],
+        "cell_count": len(cells),
+    })
+    hierarchy = document.Hierarchy(**{**scan.hierarchy.model_dump(), "detections": [rebuilt]})
+    scans = list(doc.scans)
+    scans[position] = scan.model_copy(update={"hierarchy": hierarchy})
+    return doc.model_copy(update={"scans": scans})
+
+
+def test_vacuity_counts_every_cell_of_a_detection() -> None:
+    """A detection straddling coincidence counts through its off-centre cell.
+
+    Failing input: judging a detection by its representative cell alone.
+    """
+    centred = synthetic.ScanSpec(3, 3, 300, 300, 10, 1, 1, 310, "absent", "absent", 0, 0)
+    case = synthetic.SyntheticCase(
+        name="straddle-only",
+        specs=(centred,),
+        relations=(frames.Relation(0, 0, "90-clockwise"),),
+        sources=(synthetic.FIXTURE_SOURCE,),
+        limitations=(synthetic.FIXTURE_LIMITATION,),
+    )
+    doc = synthetic.read_synthetic_document(case)
+    straddling = doc_with_detection_cells(doc, 0, [(2, 2), (1, 1)])
+    synthetic.require_detections_away_from_fixed_points(straddling, case)
+    centred_only = doc_with_detection_cells(doc, 0, [(2, 2)])
+    with pytest.raises(synthetic.VacuousCaseError, match="vacuous:"):
+        synthetic.require_detections_away_from_fixed_points(centred_only, case)
+
+
 def test_turn_oracle_reads_contract_table() -> None:
     """The oracle follows the versioned table, including the coincidence set.
 
@@ -403,16 +670,23 @@ def test_turn_oracle_reads_contract_table() -> None:
                     impulse,
                     scan_line,
                 )
-                assert (float(expected[0]), float(expected[1])) == found
+                # Halves are exact in binary64, so Fraction reads them exactly.
+                assert Fraction(found[0]) == expected[0]
+                assert Fraction(found[1]) == expected[1]
     odd_centre = (Fraction(2, 1), Fraction(2, 1))
     assert synthetic.coincident_under_both_turns(odd_centre, 2, 2) is True
     assert synthetic.coincident_under_both_turns(odd_centre, 1, 1) is False
 
 
 def test_no_detection_contains_cross_scan_cells() -> None:
-    """Every detection stays in its own lattice with its own payload identity.
+    """Shared frames relate lattices without merging cells or counting across.
 
-    Failing input: a shared-frame position merging two scans' cells.
+    Retained against #135: no detection holds cells from more than one
+    scan with its contributing payload identity kept, and counting stays
+    per scan including over an overlap. The synthetic perpendicular
+    surveys are the only place this is exercisable, since no real cross-
+    pitch pair exists. Failing input: a shared-frame position merging two
+    scans' cells.
     """
     for name in ("perp-equal", "perp-unequal", "missing", "contradictory"):
         _, doc = case_doc(name)
@@ -427,6 +701,8 @@ def test_no_detection_contains_cross_scan_cells() -> None:
                 assert detection.scan_payload_hash == scan.payload_hash
                 for cell in detection.cells:
                     assert (cell.impulse, cell.scan_line) in lattice
+            for tally in scan.hierarchy.detection_counts:
+                assert tally.denominator == scan.hierarchy.measured_cells
     text = document.dumps(case_doc("perp-equal")[1])
     assert '"total"' not in text
 

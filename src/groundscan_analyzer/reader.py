@@ -911,6 +911,7 @@ class _DetectionContext(NamedTuple):
     bounds: tuple[int, int, int, int]
     unmeasured: frozenset[tuple[int, int]]
     payload_hash: str
+    assertion_source: document.AssertionSource
 
 
 def _sample_depths(
@@ -986,6 +987,7 @@ def _field_position(
             ),
             scale=document.Scale(
                 span=context.field_length,
+                span_provenance=context.assertion_source,
                 count=context.impulse_count,
                 quotient=pitch_x,
             ),
@@ -997,6 +999,7 @@ def _field_position(
             ),
             scale=document.Scale(
                 span=context.field_width,
+                span_provenance=context.assertion_source,
                 count=context.scan_line_count,
                 quotient=pitch_y,
             ),
@@ -1044,6 +1047,9 @@ def _read_detection(
         )
     interval = descriptors.depth_interval(_sample_depths(context.depths, coords))
     boundary, adjacent = descriptors.split_boundary(coords, context.bounds, context.unmeasured)
+    detection_limitations: tuple[document.ClaimLimitation, ...] = ()
+    if context.assertion_source == document.FIXTURE_SOURCE:
+        detection_limitations = (document.FIXTURE_LIMITATION,)
     return document.Detection(
         identity=item.identity,
         number=item.number,
@@ -1068,6 +1074,7 @@ def _read_detection(
         scan_payload_hash=context.payload_hash,
         shared_frame_position=None,
         no_shared_position_reason="missing-orientation-path",
+        limitations=detection_limitations,
     )
 
 
@@ -1076,14 +1083,19 @@ def _detection_context(
     extent: document.Extent,
     impulses: list[int],
     scan_lines: list[int],
+    assertion_source: document.AssertionSource,
 ) -> _DetectionContext:
     """Gather the per-scan facts behind detection descriptors.
+
+    The assertion source rides along untouched: the entry point fixed it,
+    and the context carries it to every scale and limitation it warrants.
 
     Args:
         rows: The accepted rows in file order.
         extent: The declared extent, absent where never declared.
         impulses: The observed impulse indices in order.
         scan_lines: The observed scan-line indices in order.
+        assertion_source: The entry-point source behind the declarations.
 
     Returns:
         Depths over measured cells with geometry and boundary facts.
@@ -1106,6 +1118,7 @@ def _detection_context(
         bounds=bounds,
         unmeasured=box - frozenset(depths),
         payload_hash=frames.payload_hash(_measured_responses(rows)),
+        assertion_source=assertion_source,
     )
 
 
@@ -1620,6 +1633,7 @@ def _read_scan_inner(
     position: int,
     field_bound: document.PerturbationBound | None,
     registration_bound: document.DisplacementBound | None,
+    assertion_source: document.AssertionSource,
 ) -> document.ScanRead | document.ScanRefused:
     """Read one decoded export through both registries to its record.
 
@@ -1629,6 +1643,7 @@ def _read_scan_inner(
         field_bound: The scan's perturbation bound, or None where undeclared.
         registration_bound: The scan's displacement bound, or None where
             undeclared.
+        assertion_source: The entry-point source behind the declarations.
 
     Returns:
         The read record, or the refusal with its reason and row breakdown.
@@ -1648,7 +1663,7 @@ def _read_scan_inner(
     impulses = sorted({row.impulse for row in table.rows})
     scan_lines = sorted({row.scan_line for row in table.rows})
     remaining = _residual_map(table.rows)
-    context = _detection_context(table.rows, extent, impulses, scan_lines)
+    context = _detection_context(table.rows, extent, impulses, scan_lines, assertion_source)
     built = hierarchy.build(remaining)
     shape = scale.estimate(list(remaining.values()))
     return document.ScanRead(
@@ -1694,6 +1709,7 @@ def _read_scan(
     position: int,
     field_bound: document.PerturbationBound | None,
     registration_bound: document.DisplacementBound | None,
+    assertion_source: document.AssertionSource,
 ) -> document.ScanRead | document.ScanRefused:
     """Read one scan, converting its refusal into a record.
 
@@ -1703,12 +1719,13 @@ def _read_scan(
         field_bound: The scan's perturbation bound, or None where undeclared.
         registration_bound: The scan's displacement bound, or None where
             undeclared.
+        assertion_source: The entry-point source behind the declarations.
 
     Returns:
         The read record or the refusal record.
     """
     try:
-        return _read_scan_inner(text, position, field_bound, registration_bound)
+        return _read_scan_inner(text, position, field_bound, registration_bound, assertion_source)
     except _RefusalError as refusal:
         return document.ScanRefused(
             position=position, reason=refusal.reason, detail=refusal.detail, rows=list(refusal.rows)
@@ -2044,15 +2061,94 @@ def _recurrence_pairs(
     ]
 
 
+def _relation_source(
+    sources: Sequence[document.AssertionSource], first: int, second: int
+) -> document.AssertionSource:
+    """Carry one declared edge's source from its endpoint scans.
+
+    The check fails in the safe direction, over-caveating rather than
+    under-caveating: a relation touching any fixture-asserted scan is
+    fixture-asserted, since its warrant rests on that declaration.
+
+    Args:
+        sources: The entry-point sources in intake order.
+        first: One endpoint intake position.
+        second: The other endpoint intake position.
+
+    Returns:
+        The fixture source where either endpoint carries it, else the
+        operator source.
+    """
+    if sources[first] == document.FIXTURE_SOURCE or sources[second] == document.FIXTURE_SOURCE:
+        return document.FIXTURE_SOURCE
+    return document.OPERATOR_SOURCE
+
+
+def _frame_limitations(
+    sources: Sequence[document.AssertionSource], members: Sequence[int]
+) -> tuple[document.ClaimLimitation, ...]:
+    """Carry one frame's limitations from its member scans' sources.
+
+    Args:
+        sources: The entry-point sources in intake order.
+        members: The frame member intake positions.
+
+    Returns:
+        The fixture limitation where any member carries the fixture
+        source, else no limitations as a stated fact.
+    """
+    if any(sources[member] == document.FIXTURE_SOURCE for member in members):
+        return (document.FIXTURE_LIMITATION,)
+    return ()
+
+
+def _resolve_sources(count: int, declared: Sequence[str]) -> list[document.AssertionSource]:
+    """Carry the entry-point assertion sources, defaulting to the real loader.
+
+    The engine never derives a source from file content: the real loader
+    passes the operator source explicitly, the synthetic harness passes
+    the fixture source, and the default preserves the real-loader value
+    for direct engine calls over operator-shaped input.
+
+    Args:
+        count: The ordered intake size the sources index into.
+        declared: The loader-supplied sources in intake order, empty
+            where the caller leaves the real-loader default in place.
+
+    Returns:
+        One source per scan in intake order.
+
+    Raises:
+        ValueError: On a misaligned list or an unknown source word.
+    """
+    if not declared:
+        return [document.OPERATOR_SOURCE] * count
+    if len(declared) != count:
+        msg = f"assertion sources name no scan: {len(declared)} for {count}"
+        raise ValueError(msg)
+    resolved: list[document.AssertionSource] = []
+    for source in declared:
+        if source == document.OPERATOR_SOURCE:
+            resolved.append(document.OPERATOR_SOURCE)
+        elif source == document.FIXTURE_SOURCE:
+            resolved.append(document.FIXTURE_SOURCE)
+        else:
+            msg = f"unknown assertion source: {source!r}"
+            raise ValueError(msg)
+    return resolved
+
+
 def _attach_frames(
     scans: list[document.ScanRead | document.ScanRefused],
     relations: Sequence[frames.Relation],
+    assertion_sources: Sequence[document.AssertionSource],
 ) -> document.Document:
     """Relate whole lattices into shared frames without merging any.
 
     Args:
         scans: The read or refused scan records in intake order.
         relations: Declared relations over intake positions.
+        assertion_sources: The entry-point sources in intake order.
 
     Returns:
         The survey document with frames, echoes and contradictions.
@@ -2061,7 +2157,12 @@ def _attach_frames(
     return document.Document(
         scans=[_rebuild_scan(scan, tree) for scan in scans],
         declared_relations=[
-            document.DeclaredRelation(first=edge.first, second=edge.second, relation=edge.word)  # type: ignore[arg-type]
+            document.DeclaredRelation(
+                first=edge.first,
+                second=edge.second,
+                relation=edge.word,  # type: ignore[arg-type]
+                source=_relation_source(assertion_sources, edge.first, edge.second),
+            )
             for edge in tree.declared
         ],
         frames=[
@@ -2073,6 +2174,7 @@ def _attach_frames(
                     document.FrameRelation(scan=member.scan, relation_class=member.relation_class)
                     for member in frame.relations
                 ],
+                limitations=_frame_limitations(assertion_sources, frame.members),
             )
             for frame in tree.frames
         ],
@@ -2095,6 +2197,7 @@ def read_document(
     relations: Sequence[frames.Relation] = (),
     perturbation_bounds: Sequence[document.PerturbationBound | None] = (),
     displacement_bounds: Sequence[document.DisplacementBound | None] = (),
+    assertion_sources: Sequence[str] = (),
 ) -> document.Document:
     """Read named exports in intake order to one survey document.
 
@@ -2106,7 +2209,11 @@ def read_document(
     into a neighbour; a self-loop constrains uniformly like any edge.
     Declared bounds align with intake positions in the same order, one per
     scan with None where nothing was declared; a misaligned list stops the
-    run rather than shifting a declaration onto the wrong scan.
+    run rather than shifting a declaration onto the wrong scan. Assertion
+    sources arrive from the loader in the same order: the real loader
+    passes the operator source, the synthetic harness passes the fixture
+    source, and the engine carries either without deriving one from file
+    content.
 
     Args:
         contents: The raw export bytes in sorted intake order.
@@ -2115,14 +2222,16 @@ def read_document(
             order, None per scan where undeclared.
         displacement_bounds: Declared registration displacement bounds in
             intake order, None per scan where undeclared.
+        assertion_sources: Loader-supplied sources in intake order, empty
+            where the caller leaves the real-loader default in place.
 
     Returns:
         The survey document recording what was read and what was refused.
 
     Raises:
         UndecodableInputError: When a file cannot be decoded at all.
-        ValueError: On an out-of-range position, an unknown word, or a
-            misaligned bound list.
+        ValueError: On an out-of-range position, an unknown word, a
+            misaligned bound or source list, or an unknown source.
     """
     for relation in relations:
         frames.word_to_class(relation.word)
@@ -2141,6 +2250,7 @@ def read_document(
     if len(displacements) != len(contents):
         msg = f"displacement bounds name no scan: {len(displacements)} for {len(contents)}"
         raise ValueError(msg)
+    sources = _resolve_sources(len(contents), assertion_sources)
     scans: list[document.ScanRead | document.ScanRefused] = []
     for position, content in enumerate(contents):
         try:
@@ -2148,5 +2258,9 @@ def read_document(
         except UnicodeDecodeError as exc:
             msg = f"scan {position} cannot be decoded as text"
             raise UndecodableInputError(msg) from exc
-        scans.append(_read_scan(text, position, perturbations[position], displacements[position]))
-    return _attach_frames(scans, relations)
+        scans.append(
+            _read_scan(
+                text, position, perturbations[position], displacements[position], sources[position]
+            )
+        )
+    return _attach_frames(scans, relations, sources)

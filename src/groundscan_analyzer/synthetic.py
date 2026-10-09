@@ -24,14 +24,17 @@ repairs, and proves nothing about whether anyone declared a real walk
 correctly.
 
 Provenance follows the entry point rather than the individual
-declaration: :func:`read_synthetic_document` fixes the source to
-``fixture-asserted`` for the whole survey, while the operator entry
-points (:func:`groundscan_analyzer.reader.read_document` and
-:func:`groundscan_analyzer.cli.main`) accept no source at all. The engine
-itself never assigns either source, so a file cannot claim one. The arm
-fails in the safe direction, over-caveating rather than under-caveating:
-every synthetic case carries :data:`FIXTURE_LIMITATION`, checked by exact
-set equality.
+declaration: the real loader (:func:`groundscan_analyzer.cli.main`)
+asserts the operator source explicitly,
+:func:`read_synthetic_document` fixes the fixture source for the whole
+survey, and the engine (:func:`groundscan_analyzer.reader.read_document`)
+carries either without deriving one from file content, so a file cannot
+claim one. Intake ordinals below are named ``position`` after
+``document.ScanRead.position`` and the reader's intake-position
+convention; they never denote spatial positions. The arm fails in the
+safe direction, over-caveating rather than under-caveating: every
+detection and frame resting on a fixture-asserted declaration carries
+:data:`FIXTURE_LIMITATION`, checked by exact set equality.
 
 Coverage of this arm closes no part of the declaration gap, stated once
 at :data:`COVERAGE_STATEMENT`.
@@ -43,13 +46,12 @@ from fractions import Fraction
 from hashlib import sha256
 from typing import TYPE_CHECKING, Literal, NamedTuple
 
+from groundscan_analyzer import document as document_module
 from groundscan_analyzer import frames, reader
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
     from typing import Final
-
-    from groundscan_analyzer import document as document_module
 
 __all__ = [
     "ASSERTION_SOURCES",
@@ -80,19 +82,19 @@ __all__ = [
     "require_detections_away_from_fixed_points",
 ]
 
-AssertionSource = Literal["operator-asserted", "fixture-asserted"]
+AssertionSource = document_module.AssertionSource
 
 CoordinatePresence = Literal["absent", "present-but-empty", "present-with-value"]
 
-FIXTURE_SOURCE: str = "fixture-asserted"
+FIXTURE_SOURCE = document_module.FIXTURE_SOURCE
 
-OPERATOR_SOURCE: str = "operator-asserted"
+OPERATOR_SOURCE = document_module.OPERATOR_SOURCE
 
-ASSERTION_SOURCES: tuple[str, str] = (OPERATOR_SOURCE, FIXTURE_SOURCE)
+ASSERTION_SOURCES = document_module.ASSERTION_SOURCES
 
 GENERATOR_VERSION: str = "synthetic-generator-v1"
 
-FIXTURE_LIMITATION: str = "fixture-asserted-declaration"
+FIXTURE_LIMITATION = document_module.FIXTURE_LIMITATION
 
 COVERAGE_STATEMENT: str = (
     "the synthetic arm cannot prove an operator declared a real walk correctly, "
@@ -105,6 +107,7 @@ REQUIRED_CASE_NAMES: tuple[str, ...] = (
     "perp-unequal",
     "missing",
     "contradictory",
+    "contradictory-mirror",
     "closing",
     "closing-signed-cw",
     "closing-signed-ccw",
@@ -131,7 +134,7 @@ class ScanSpec(NamedTuple):
     Extents ride as integer hundredths of the declared unit, so ``300``
     means ``3.00`` in that unit. Responses ride as integers printed at
     four places, so ``10`` means ``10.0000``. The spike cell carries the
-    spike value and every other measured cell carries the base value, so
+    spike response and every other cell carries the base response, so
     detections exist without asserting anything about the ground.
     """
 
@@ -139,10 +142,10 @@ class ScanSpec(NamedTuple):
     line_total: int
     length_hundredths: int
     width_hundredths: int
-    base_value: int
+    base_response: int
     spike_impulse: int
     spike_line: int
-    spike_value: int
+    spike_response: int
     latitude_state: CoordinatePresence
     longitude_state: CoordinatePresence
     latitude_value: int
@@ -155,7 +158,7 @@ class SyntheticCase(NamedTuple):
     name: str
     specs: tuple[ScanSpec, ...]
     relations: tuple[frames.Relation, ...]
-    sources: tuple[str, ...]
+    sources: tuple[AssertionSource, ...]
     limitations: tuple[str, ...]
 
 
@@ -175,16 +178,16 @@ def format_extent(hundredths: int) -> str:
     return f"{whole}.{tens}{ones} m"
 
 
-def format_response(value: int) -> str:
+def format_response(response: int) -> str:
     """Format an integer response at four printed places without floats.
 
     Args:
-        value: The integer response.
+        response: The integer response.
 
     Returns:
         The response as ``V.0000``.
     """
-    return f"{value}.0000"
+    return f"{response}.0000"
 
 
 def pitch_fraction(span_hundredths: int, observed_total: int) -> Fraction:
@@ -239,19 +242,20 @@ def _header_for(spec: ScanSpec) -> str:
     return header
 
 
-def _cell_text(value: int, state: CoordinatePresence) -> str:
+def _cell_text(unframed: int, state: CoordinatePresence) -> str:
     """Render one discarded-column cell from its presence state.
 
     Args:
-        value: The integer value, printed only where a value is present.
+        unframed: The integer unframed number, printed only where a number
+            is present. The engine discards it; only presence travels.
         state: Whether the column is absent, empty, or valued.
 
     Returns:
-        The empty string except where the state carries a value.
+        The empty string except where the state carries a number.
     """
     if state != "present-with-value":
         return ""
-    return format_response(value)
+    return format_response(unframed)
 
 
 def _row_line(impulse: int, scan_line: int, response: int, spec: ScanSpec) -> str:
@@ -260,7 +264,7 @@ def _row_line(impulse: int, scan_line: int, response: int, spec: ScanSpec) -> st
     Args:
         impulse: The one-based impulse ordinal.
         scan_line: The one-based scan-line ordinal.
-        response: The integer response at this coordinate.
+        response: The integer response at this lattice cell.
         spec: The scan specification carrying presence states.
 
     Returns:
@@ -298,9 +302,9 @@ def make_export(spec: ScanSpec) -> bytes:
     ]
     for scan_line in range(1, spec.line_total + 1):
         for impulse in range(1, spec.impulse_total + 1):
-            response = spec.base_value
+            response = spec.base_response
             if impulse == spec.spike_impulse and scan_line == spec.spike_line:
-                response = spec.spike_value
+                response = spec.spike_response
             lines.append(_row_line(impulse, scan_line, response, spec))
     return "".join(lines).encode("utf-8")
 
@@ -513,8 +517,10 @@ def require_detections_away_from_fixed_points(
         touched = _classes_touching(case, position)
         found = False
         for detection in scan.hierarchy.detections:
-            cell = detection.cells[0]
-            if not touched or _away_from_fixed(spec, touched, cell.impulse, cell.scan_line):
+            if not touched or any(
+                _away_from_fixed(spec, touched, cell.impulse, cell.scan_line)
+                for cell in detection.cells
+            ):
                 found = True
                 break
         if not found:
@@ -526,16 +532,18 @@ def require_detections_away_from_fixed_points(
 def read_synthetic_document(case: SyntheticCase) -> document_module.Document:
     """Read one manufactured survey, fixing the assertion source at entry.
 
-    The source is established here and nowhere else: every declaration in
-    the case is ``fixture-asserted``, and the engine never assigns it. No
-    operator-facing entry point accepts this source, and the engine never
-    sets it itself.
+    The source is established here and traced into the record: every
+    declaration in the case is ``fixture-asserted``, and the engine
+    carries it onto each scale, relation, detection and frame without
+    deriving one from file content. No operator-facing entry point
+    accepts this source, and the engine never sets it itself.
 
     Args:
         case: The manufactured survey with fixture sources.
 
     Returns:
-        The survey document over the synthetic exports.
+        The survey document over the synthetic exports, carrying the
+        fixture source and limitation on every resting claim.
 
     Raises:
         ValueError: When any source is not the fixture source, or the
@@ -548,7 +556,11 @@ def read_synthetic_document(case: SyntheticCase) -> document_module.Document:
     if set(case.limitations) != {FIXTURE_LIMITATION}:
         msg = "synthetic limitations name the fixture source exactly"
         raise ValueError(msg)
-    return reader.read_document(exports_of(case), list(case.relations))
+    return reader.read_document(
+        exports_of(case),
+        list(case.relations),
+        assertion_sources=list(case.sources),
+    )
 
 
 def _square_at(corner: tuple[int, int]) -> ScanSpec:
@@ -566,10 +578,10 @@ def _square_at(corner: tuple[int, int]) -> ScanSpec:
         line_total=4,
         length_hundredths=300,
         width_hundredths=300,
-        base_value=10,
+        base_response=10,
         spike_impulse=impulse,
         spike_line=scan_line,
-        spike_value=310,
+        spike_response=310,
         latitude_state="absent",
         longitude_state="absent",
         latitude_value=0,
@@ -653,6 +665,34 @@ def _contradictory() -> SyntheticCase:
         frames.Relation(3, 4, "same"),
     )
     return _wrap("contradictory", specs, relations)
+
+
+def _contradictory_mirror() -> SyntheticCase:
+    """Build the mirror contradictory cycle with an untouched clean pair.
+
+    The odd-class mirror of the even contradictory cycle: two clockwise
+    declarations disagreeing with a same edge, while the remaining pair
+    stays framed. Both mirrors withdraw their triangle and spare the
+    pair; only the declared words differ.
+
+    Returns:
+        Five scans where the turn-based triple disagrees and withdraws
+        while the remaining pair stays framed.
+    """
+    specs = (
+        _square_at((4, 1)),
+        _square_at((1, 4)),
+        _square_at((4, 4)),
+        _square_at((1, 1)),
+        _square_at((4, 1)),
+    )
+    relations = (
+        frames.Relation(0, 1, "90-clockwise"),
+        frames.Relation(1, 2, "90-clockwise"),
+        frames.Relation(0, 2, "same"),
+        frames.Relation(3, 4, "same"),
+    )
+    return _wrap("contradictory-mirror", specs, relations)
 
 
 def _closing() -> SyntheticCase:
@@ -771,14 +811,15 @@ def build_required_cases() -> dict[str, SyntheticCase]:
     """Return every required frozen case keyed by its manifest name.
 
     Returns:
-        The thirteen required cases covering perpendicular turns, faults,
-        closures, reversals, emptiness and presence states.
+        The fourteen required cases covering perpendicular turns, faults
+        with mirrors, closures, reversals, emptiness and presence states.
     """
     cases = (
         _perp_equal(),
         _perp_unequal(),
         _missing(),
         _contradictory(),
+        _contradictory_mirror(),
         _closing(),
         _signed_cw(),
         _signed_ccw(),
