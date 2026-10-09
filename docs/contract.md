@@ -178,3 +178,65 @@ version beside the contract version.
 | `missing-declared-relation` | `limitation` | `missing-declared-relation` |
 | `contradictory-relation` | `limitation` | `contradictory-relation` |
 <!-- END VOCABULARY -->
+
+## Definitional bounds
+
+The quantity registry is the only home of a definitional bound. Every
+definitional bound carries three separate checks: the bound is valid, the
+witness attains it, and production agrees. The three fail differently, so
+they are kept separate. An oracle sharing production's code verifies
+nothing: each oracle below shares no code with the implementation it
+checks, and a check that does share code is a failure.
+
+The legacy solidity oracle's stated reason turned out to be false on
+inspection, so it is replaced rather than trusted. Its reason claimed a
+hull routine raises on collinear input, true only for cell-centre hulls;
+under the corner hull a 1xN strip does not raise.
+
+| quantity | bound | derivation | witness |
+| --- | --- | --- | --- |
+| `solidity` | 0 < s <= 1 | occupied cells lie inside a hull that contains them | convex cell set attains 1.0 |
+| `compactness` | 0 < c <= pi/4 | perimeter inequality P >= 4 sqrt(A) gives pi/4 | single cell attains pi/4 |
+| `field-area` | pitch products to measured cover | built from cell count and scan measured extremes | single cell attains floor, full cover attains ceiling |
+| `detection-count` | c1 <= N <= n per polarity | charging argument over tie groups, no connectivity | isolated distinct cells attain n, one block attains c1 |
+| `component-count` | at most ceil(L*W/2) under 4-connectivity | independence number of the connectivity graph | checkerboard attains ceiling on full rectangles only |
+| `scale-disagreement` | 0 <= d <= 1 identically | pinned relative form in [0, 1] identically | coincident estimates attain 0, single-sided zero attains 1 |
+| `median-atom-fraction` | 0 <= f <= 1 | exact numerator over exact denominator | no tie attains 0, constant field attains 1 |
+
+The `solidity` oracle is a hand-derived rational table plus a generated
+exhaustive check over small cell sets, in exact arithmetic with no
+tolerance. Rational arithmetic means no tolerance, and exhaustive over the
+small cases means the interesting boundaries are covered rather than
+sampled. A bound stated without its derivation is an assertion; a
+derivation not stated here fails the checks.
+
+The `compactness` bound is proved from the perimeter inequality rather
+than measured. Occupied cells fit within occupied rows times columns, so
+the perimeter has a floor in the square root of the area: P*P >= 16*A for
+area A in cell units and exposed perimeter P counting hole boundaries.
+Dividing gives 4*pi*A/P*P <= pi/4, with equality for the single cell
+(P = 4, A = 1). The proof is this paragraph, not a corpus figure.
+
+The `field-area` bounds are derived from the cell count and the scan's own
+measured extremes, independent by construction and owing no second
+implementation. Below by along-line pitch times across-line pitch, the
+area of the single cell a leaf detection is; above by the area of the
+scan's own measured extent, one detection covering every measured cell.
+They are built rather than read off the corpus, which is the difference
+between an oracle and a second copy of production.
+
+Every bound carries a constructed witness attaining it exactly, and the
+witness is itself checked. A witness claimed for a rectangular
+fully-measured lattice is claimed only in that case: the checkerboard
+ceiling for `component-count` and the full-cover ceiling for `field-area`
+require a rectangular fully-measured lattice with no padding and no
+missing region, and the check records unexercised coverage elsewhere
+rather than passing.
+
+Measured agreement supports a property's evidence coverage and never
+justifies, strengthens or weakens a grade or a bound. The corpus's
+partition across states is recorded as evidence and never registered as a
+property. The oracle does not load its data from the contract it checks:
+the oracles hold their own hand-derived table and read no registry, and a
+check that does load its data from the contract is recorded as
+unexercised coverage rather than passing.
