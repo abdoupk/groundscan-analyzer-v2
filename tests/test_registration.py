@@ -261,14 +261,22 @@ def test_changing_the_recorded_displacement_changes_the_outcome() -> None:
 
 
 def test_unstable_names_itself_on_synthetic_winners() -> None:
-    """Perturbed winners differing from original winners read unstable."""
+    """An outer tie joining the winners under perturbation reads unstable.
+
+    The record seam cannot reach this on the committed fixtures, where far
+    shifts run out of overlap before they can tie, so coherent synthetic
+    winners cover it: the outer shift attains the best correlation beside
+    the original winner rather than below it.
+    """
     near = registration_module.ShiftScore(0, 0, 1.0, 16)
     runner = registration_module.ShiftScore(0, 1, 0.5, 12)
-    outer = registration_module.ShiftScore(2, 0, 0.9, 8)
+    outer = registration_module.ShiftScore(2, 0, 1.0, 8)
     summary = registration_module.Summary(1.0, 0.5, (near,), (near, runner))
-    perturbed = registration_module.Summary(1.0, 0.9, (outer,), (near, runner, outer))
+    perturbed = registration_module.Summary(1.0, 1.0, (near, outer), (near, runner, outer))
     assert reader._stability_of(summary, perturbed) is False
-    assert reader._drift_of(summary, perturbed) == abs(0.5 - 0.1)
+    drift = reader._drift_of(summary, perturbed)
+    assert drift is not None
+    assert bits(drift) == bits(0.5)
     verdict = reader._verdict_defined(summary, 0.5, 1e-15, bound(2.0), stable=False)
     assert verdict == ("indeterminate", "unstable-under-recorded-perturbation")
 
