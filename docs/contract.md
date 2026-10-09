@@ -240,3 +240,35 @@ property. The oracle does not load its data from the contract it checks:
 the oracles hold their own hand-derived table and read no registry, and a
 check that does load its data from the contract is recorded as
 unexercised coverage rather than passing.
+
+## Compatibility gate
+
+The nine real exports are read where the provenance set is present, and
+what that proves is compatibility rather than correctness. The gate is
+mostly a conformance check, and saying so plainly is the finding: eight
+of nine real exports carry no defensible expectation and the ninth
+carries a negative, so the gate re-derives the contract rules at run
+time rather than pinning recorded magnitudes. No recorded magnitude and
+no frozen expectation bytes exist anywhere in the gate.
+
+What the gate asserts is real: solidity in (0, 1] with the hull
+recomputed in integer arithmetic through two independent walks,
+compactness in (0, pi/4] over exposed edges including hole boundaries,
+dominance at or above one with ties carrying state and fewer than two
+components withholding as `requires-two-components`, and polarity as
+disjoint and exhaustive over component cells with no polarity value
+asserted. Exactly 1.0 for convex sets is not asserted here, since it
+has earned its place on evidence rather than definition. Repeatability
+across two fresh processes stays as a precondition with byte-identical
+output. Survey order is owned elsewhere and is never re-checked here;
+the four bounds this gate asserts each have exactly one owner, stated
+in the gate module, while field-area, detection-count, component-count
+and the scale pair stay owned by their quantity registry entries and
+are never re-checked here either.
+
+The provenance set lives outside the repository. The gate names an
+explicit path through `GROUNDSCAN_CORPUS_ROOT` with per-file manifest
+hashes held in the gate module in sorted-name order, without naming any
+file. A missing file reads as incomplete; a present file with the wrong
+bytes reads as a distinct integrity failure. Nothing here is ever
+covered by synthetic material, and no scan-order comparison is made.
