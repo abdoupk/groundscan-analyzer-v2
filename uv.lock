@@ -496,6 +496,7 @@ version = "0.1.0"
 source = { editable = "packages/groundscan-tui" }
 dependencies = [
     { name = "groundscan-analyzer" },
+    { name = "groundscan-record" },
     { name = "rich" },
     { name = "textual" },
 ]
@@ -503,6 +504,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "groundscan-analyzer", editable = "." },
+    { name = "groundscan-record", editable = "packages/groundscan-record" },
     { name = "rich", specifier = ">=13.9.0" },
     { name = "textual", specifier = ">=1.0.0" },
 ]

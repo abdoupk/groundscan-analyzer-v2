@@ -17,25 +17,26 @@ from textual.widgets import Footer
 from groundscan_analyzer import document as document_module
 from groundscan_analyzer import reader, synthetic
 from groundscan_tui import cli
-from groundscan_tui.app import BINDINGS, FieldBrowser, RefusalApp
+from groundscan_tui.app import BINDINGS, CampaignApp, CampaignBrowser
 from groundscan_tui.grid import field_text
 from groundscan_tui.model import (
-    RefusalView,
-    ScanView,
     _index_span,
     _span,
     build_detections,
-    build_view,
 )
 from groundscan_tui.panes import (
     ABSENT,
     DetailPane,
     DetectionPane,
+    RefusalPane,
+    ScanPane,
     _depth,
     _field_position,
     _shared_position,
     detail_text,
 )
+
+from .support import document_view, first_scan
 
 if TYPE_CHECKING:
     import pytest
@@ -50,6 +51,28 @@ def _plain(widget: Static) -> str:
 
 
 ENGINE_DATA = Path(__file__).resolve().parents[3] / "tests" / "data"
+
+
+def _document() -> document_module.Document:
+    return document_module.loads(
+        (ENGINE_DATA / "acceptance_single.json").read_text(encoding="utf-8"),
+    )
+
+
+def _refused_document() -> document_module.Document:
+    return reader.read_document(
+        [(ENGINE_DATA / "acceptance_refused_export.txt").read_bytes()],
+    )
+
+
+def _campaign() -> document_module.Document:
+    return reader.read_document(
+        [
+            (ENGINE_DATA / "acceptance_single_export.txt").read_bytes(),
+            (ENGINE_DATA / "acceptance_refused_export.txt").read_bytes(),
+        ],
+    )
+
 
 # No extent declared and no depth column, so the record must withhold the
 # figures that need them rather than substitute a zero.
@@ -157,34 +180,24 @@ def test_a_shared_frame_position_is_stated_with_its_homogeneity() -> None:
 
 def test_no_selection_reads_as_none_rather_than_a_wrong_row() -> None:
     async def scenario() -> None:
-        document = document_module.loads(
-            (ENGINE_DATA / "acceptance_single.json").read_text(encoding="utf-8"),
-        )
-        view = build_view(document)
-        assert isinstance(view, ScanView)
-        app = FieldBrowser(view)
+        app = CampaignApp(browser=CampaignBrowser(_document(), document_view(_document())))
         async with app.run_test() as pilot:
             await pilot.pause()
-            pane = app.query_one(DetectionPane)
+            pane = app.screen.query_one(DetectionPane)
             pane.index = None
             await pilot.pause()
             assert pane.current_row is None
-            assert "no detection selected" in _plain(app.query_one(DetailPane))
+            assert "no detection selected" in _plain(app.screen.query_one(DetailPane))
 
     asyncio.run(scenario())
 
 
 def test_the_bindings_are_the_footer_s_own() -> None:
     async def scenario() -> None:
-        document = document_module.loads(
-            (ENGINE_DATA / "acceptance_single.json").read_text(encoding="utf-8"),
-        )
-        view = build_view(document)
-        assert isinstance(view, ScanView)
-        app = FieldBrowser(view)
+        app = CampaignApp(browser=CampaignBrowser(_document(), document_view(_document())))
         async with app.run_test() as pilot:
             await pilot.pause()
-            assert app.query(Footer)
+            assert app.screen.query(Footer)
             keys = {
                 binding[0] if isinstance(binding, tuple) else binding.key for binding in BINDINGS
             }
@@ -194,13 +207,79 @@ def test_the_bindings_are_the_footer_s_own() -> None:
     asyncio.run(scenario())
 
 
-def test_the_refusal_view_closes_on_q_too() -> None:
-    contents = (ENGINE_DATA / "acceptance_refused_export.txt").read_bytes()
-    view = build_view(reader.read_document([contents]))
-    assert isinstance(view, RefusalView)
-
+def test_a_single_scan_document_hides_the_scan_pane() -> None:
     async def scenario() -> None:
-        app = RefusalApp(view)
+        app = CampaignApp(browser=CampaignBrowser(_document(), document_view(_document())))
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            assert not app.query(ScanPane)
+
+    asyncio.run(scenario())
+
+
+def test_a_campaign_shows_the_scan_pane_with_one_row_per_scan() -> None:
+    async def scenario() -> None:
+        app = CampaignApp(
+            browser=CampaignBrowser(_campaign(), document_view(_campaign()), ["one.csv", "two.csv"])
+        )
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            pane = app.screen.query_one(ScanPane)
+            assert len(pane.query("ListItem")) == 2
+
+    asyncio.run(scenario())
+
+
+def test_stepping_to_a_refused_scan_shows_it_in_the_field_place() -> None:
+    async def scenario() -> None:
+        app = CampaignApp(
+            browser=CampaignBrowser(_campaign(), document_view(_campaign()), ["one.csv", "two.csv"])
+        )
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            app.screen.query_one(ScanPane).index = 1
+            await pilot.pause()
+            refusal = app.screen.query_one(RefusalPane)
+            assert refusal.display
+            assert not app.screen.query_one(DetectionPane).display
+            assert "missing-required-column" in _plain(refusal)
+
+    asyncio.run(scenario())
+
+
+def test_stepping_back_to_a_read_scan_shows_its_field() -> None:
+    async def scenario() -> None:
+        app = CampaignApp(
+            browser=CampaignBrowser(_campaign(), document_view(_campaign()), ["one.csv", "two.csv"])
+        )
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            pane = app.screen.query_one(ScanPane)
+            pane.index = 1
+            await pilot.pause()
+            pane.index = 0
+            await pilot.pause()
+            assert app.screen.query_one(DetectionPane).display
+            assert not app.screen.query_one(RefusalPane).display
+
+    asyncio.run(scenario())
+
+
+def test_a_survey_document_shows_the_cross_scan_section() -> None:
+    async def scenario() -> None:
+        app = CampaignApp(browser=CampaignBrowser(_campaign(), document_view(_campaign())))
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            assert app.screen.query(".Survey")
+
+    asyncio.run(scenario())
+
+
+def test_the_refusal_view_closes_on_q_too() -> None:
+    async def scenario() -> None:
+        app = CampaignApp(
+            browser=CampaignBrowser(_refused_document(), document_view(_refused_document()))
+        )
         async with app.run_test() as pilot:
             await pilot.pause()
             await pilot.press("q")
@@ -210,38 +289,24 @@ def test_the_refusal_view_closes_on_q_too() -> None:
     asyncio.run(scenario())
 
 
-def test_the_projection_chooses_which_application_opens() -> None:
-    document = document_module.loads(
-        (ENGINE_DATA / "acceptance_single.json").read_text(encoding="utf-8"),
-    )
-    refused = reader.read_document(
-        [(ENGINE_DATA / "acceptance_refused_export.txt").read_bytes()],
-    )
-    assert isinstance(cli._view(build_view(document)), FieldBrowser)
-    assert isinstance(cli._view(build_view(refused)), RefusalApp)
-
-
 def test_a_successful_read_launches_the_view_and_exits_zero(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     export = tmp_path / "case.txt"
     export.write_bytes(_lattice({**NESTED_STRONG, **NESTED_RIDGE}))
     launched: list[bool] = []
-    refusal = RefusalApp(RefusalView(reason="r", detail="d", rows=()))
 
-    def _record_run() -> None:
+    def _record_run(_self: CampaignApp) -> None:
         launched.append(True)
 
-    monkeypatch.setattr(refusal, "run", _record_run)
-    monkeypatch.setattr(cli, "_view", lambda _projection: refusal)
+    monkeypatch.setattr(CampaignApp, "run", _record_run)
     assert cli.run([str(export)]) == 0
     assert launched == [True]
 
 
 def test_a_nested_field_draws_every_level() -> None:
     document = reader.read_document([_lattice({**NESTED_STRONG, **NESTED_RIDGE})])
-    view = build_view(document)
-    assert isinstance(view, ScanView)
+    view = first_scan(document)
     text = field_text(view.grid, frozenset()).plain
     assert len(text.splitlines()) == len(view.grid.scan_lines)
     assert len(text.splitlines()[0]) == len(view.grid.impulses)

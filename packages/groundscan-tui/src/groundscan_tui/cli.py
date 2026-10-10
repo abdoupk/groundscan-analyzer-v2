@@ -1,44 +1,34 @@
-"""The entry point: read one export through the engine, then view it.
+"""The entry point: decide an intake, read it, and open the view over it.
 
-The engine is not reopened to serve this. Its parsers for the perturbation
-and displacement bounds are private, and there are three ways to reach the
-same values -- duplicate the parsers here, export them from the engine, or
-read through the CLI the engine already ships. Only the third keeps one
-parser for one contract, leaves every module in `src/groundscan_analyzer/`
-untouched, and makes the thing on screen the thing `groundscan-analyzer
-scan` actually emits.
-
-The bound arguments are forwarded verbatim. This entry point decides where
-an export is and how it is viewed; what a bound means belongs to the engine,
-so its grammar is not restated here.
+Naming one export and naming a folder are different claims about the
+intake, so both are stated plainly and neither is inferred from the other.
+A single export reads through the engine's `scan`; a folder reads through
+`survey` after the operator has agreed the file list, because the engine
+indexes every bound and every relation by a position in that list and never
+discovers files itself.
 """
 
 from __future__ import annotations
 
 import argparse
 from pathlib import Path
-import shutil
-import subprocess  # ruff: ignore[suspicious-subprocess-import] -- fixed argv, no shell
 import sys
 from typing import TYPE_CHECKING
 
-from groundscan_analyzer import document as document_module
-from groundscan_tui.app import FieldBrowser, RefusalApp
-from groundscan_tui.model import RefusalView, build_view
+from groundscan_tui.app import CampaignApp, CampaignBrowser
+from groundscan_tui.engine import (
+    EXIT_FAILED,
+    EXIT_OK,
+    EngineError,
+    EngineSession,
+    IntakeError,
+    intake,
+)
+from groundscan_tui.model import build_view
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
-
-    from groundscan_tui.model import ScanView
-
-ENGINE: str = "groundscan-analyzer"
-
-EXIT_OK: int = 0
-EXIT_FAILED: int = 1
-
-
-class EngineError(RuntimeError):
-    """The engine could not be run, or declined to read the export."""
+    from pathlib import Path as PathType
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -49,9 +39,34 @@ def build_parser() -> argparse.ArgumentParser:
     """
     parser = argparse.ArgumentParser(
         prog="groundscan-tui",
-        description="View one GroundScan export as a field and its detections.",
+        description="View one GroundScan export, or a folder of them, as a field.",
     )
-    parser.add_argument("export", type=Path, metavar="EXPORT", help="The export to view.")
+    parser.add_argument(
+        "export",
+        type=Path,
+        metavar="EXPORT",
+        nargs="?",
+        help="The export to view.",
+    )
+    parser.add_argument(
+        "--folder",
+        type=Path,
+        metavar="DIR",
+        default=None,
+        help="A folder of exports to read as one campaign.",
+    )
+    parser.add_argument(
+        "--out",
+        type=Path,
+        metavar="DIR",
+        default=None,
+        help="Where to write exported records; defaults to the intake folder.",
+    )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Overwrite an exported file that already exists.",
+    )
     parser.add_argument(
         "--perturbation",
         metavar="BOUND",
@@ -67,84 +82,107 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def engine_argv(export: Path, bounds: dict[str, str | None]) -> list[str]:
-    """Build the engine's own command line, program name first.
-
-    Args:
-        export: The export to read.
-        bounds: Bound flags to forward, each absent or a value.
+def _bounds(args: argparse.Namespace) -> dict[str, str | None]:
+    """Collect the bound flags the single-export path forwards.
 
     Returns:
-        The argv the engine is run with.
+        Each flag's value, absent or a value to forward.
     """
-    argv = [ENGINE, "scan"]
-    for flag, value in bounds.items():
-        if value is not None:
-            argv += [f"--{flag}", value]
-    argv.append(str(export))
-    return argv
+    return {"perturbation": args.perturbation, "displacement": args.displacement}
 
 
-def read_document(export: Path, bounds: dict[str, str | None]) -> document_module.Document:
-    """Read one export through the engine and return the record it emits.
+def intake_from(args: argparse.Namespace) -> tuple[Path, ...]:
+    """Decide what the command line is asking to read.
+
+    Naming a file and naming a folder are different claims about the intake,
+    so both together is a mistake rather than a precedence rule.
 
     Args:
-        export: The export to read.
-        bounds: Bound flags to forward, each absent or a value.
+        args: The parsed command line.
 
     Returns:
-        The document the engine emitted.
+        The one export, or the folder's scan-shaped files.
 
     Raises:
-        EngineError: Where the engine is absent, or declined to read.
+        IntakeError: Where neither or both were named, or a folder is empty.
     """
-    argv = engine_argv(export, bounds)
-    executable = shutil.which(argv[0])
-    if executable is None:
-        message = f"{ENGINE} is not on PATH; the engine is the only reader of an export"
-        raise EngineError(message)
-    completed = subprocess.run(  # ruff: ignore[subprocess-without-shell-equals-true] -- fixed argv, no shell
-        [executable, *argv[1:]],
-        capture_output=True,
-        check=False,
-        text=True,
-        encoding="utf-8",
-    )
-    if completed.returncode != EXIT_OK:
-        message = completed.stderr.strip() or f"{ENGINE} exited {completed.returncode}"
-        raise EngineError(message)
-    return document_module.loads(completed.stdout)
+    if args.export is not None and args.folder is not None:
+        message = "name one export or one folder, not both"
+        raise IntakeError(message)
+    if args.folder is not None:
+        return intake(args.folder)
+    if args.export is not None:
+        return (args.export,)
+    message = "name one export or one folder"
+    raise IntakeError(message)
 
 
-def _view(view: ScanView | RefusalView) -> FieldBrowser | RefusalApp:
-    """Choose the application the projection calls for.
+def _single(
+    paths: Sequence[PathType], session: EngineSession, args: argparse.Namespace
+) -> CampaignApp:
+    """Read one export and wrap it in the browser.
 
     Args:
-        view: The projection of one document.
+        paths: The one export.
+        session: The engine session to read through.
+        args: The parsed command line.
 
     Returns:
-        The refusal view where the contract declined, else the browser.
+        The application opening on the browser for that export.
     """
-    return RefusalApp(view) if isinstance(view, RefusalView) else FieldBrowser(view)
+    document = session.read_export(paths[0], _bounds(args))
+    return CampaignApp(
+        browser=CampaignBrowser(
+            document,
+            build_view(document),
+            tuple(str(path) for path in paths),
+            args,
+        ),
+    )
+
+
+def _campaign(
+    paths: Sequence[PathType], session: EngineSession, args: argparse.Namespace
+) -> CampaignApp:
+    """Open on the intake screen so the operator confirms the file list.
+
+    Args:
+        paths: The enumerated intake, name-sorted.
+        session: The engine session to read through.
+        args: The parsed command line.
+
+    Returns:
+        The application, opening on the intake screen.
+    """
+    return CampaignApp.for_intake(session, paths, args)
 
 
 def run(argv: Sequence[str] | None = None) -> int:
-    """Read an export and open the view over it.
+    """Read an intake and open the view over it.
 
     Args:
         argv: The command line, or None to read the process's own.
 
     Returns:
-        Zero on success, one where the engine could not be read through.
+        Zero on success, one where the intake or the engine could not be read.
     """
     args = build_parser().parse_args(argv)
-    bounds = {"perturbation": args.perturbation, "displacement": args.displacement}
     try:
-        document = read_document(args.export, bounds)
+        paths = intake_from(args)
+    except IntakeError as error:
+        print(str(error), file=sys.stderr)
+        return EXIT_FAILED
+    session = EngineSession()
+    try:
+        campaign = (
+            _single(paths, session, args)
+            if len(paths) == 1 and args.folder is None
+            else _campaign(paths, session, args)
+        )
     except EngineError as error:
         print(str(error), file=sys.stderr)
         return EXIT_FAILED
-    _view(build_view(document)).run()
+    campaign.run()
     return EXIT_OK
 
 

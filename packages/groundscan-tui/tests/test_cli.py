@@ -10,16 +10,11 @@ import pytest
 
 from groundscan_analyzer import document as document_module
 import groundscan_tui
-from groundscan_tui.cli import (
-    ENGINE,
-    EngineError,
-    build_parser,
-    engine_argv,
-    main,
-    read_document,
-    run,
-)
-from groundscan_tui.model import RefusalView, ScanView, build_view
+from groundscan_tui.cli import build_parser, main, run
+from groundscan_tui.engine import ENGINE, EngineError, engine_argv, read_document
+from groundscan_tui.model import RefusalView, ScanView
+
+from .support import first_refusal, first_scan
 
 ENGINE_DATA = Path(__file__).resolve().parents[3] / "tests" / "data"
 EXPORT = ENGINE_DATA / "acceptance_single_export.txt"
@@ -58,14 +53,13 @@ def test_the_engine_reads_the_export_and_the_record_round_trips() -> None:
 
 def test_the_view_is_the_field_browser_where_the_contract_read() -> None:
     document = read_document(EXPORT, {"perturbation": None, "displacement": None})
-    view = build_view(document)
-    assert isinstance(view, ScanView)
+    assert isinstance(first_scan(document), ScanView)
 
 
 def test_a_refused_export_still_exits_zero_but_views_as_a_refusal() -> None:
     """The engine declines without failing, and the reason survives."""
     document = read_document(REFUSED, {"perturbation": None, "displacement": None})
-    assert isinstance(build_view(document), RefusalView)
+    assert isinstance(first_refusal(document), RefusalView)
 
 
 def _scan(export: Path, bounds: dict[str, str | None] | None = None) -> document_module.ScanRead:
@@ -98,7 +92,7 @@ def test_a_missing_export_is_reported_and_exits_one(
 
 
 def test_an_absent_engine_is_reported_not_guessed(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("groundscan_tui.cli.shutil.which", lambda _name: None)
+    monkeypatch.setattr("groundscan_tui.engine.shutil.which", lambda _name: None)
     with pytest.raises(EngineError, match="not on PATH"):
         read_document(EXPORT, {"perturbation": None, "displacement": None})
 
@@ -109,7 +103,7 @@ def test_a_refused_run_level_read_exits_one(
     def refuse(*_args: object, **_kwargs: object) -> subprocess.CompletedProcess[str]:
         return subprocess.CompletedProcess([], 1, "", "run-level refusal\n")
 
-    monkeypatch.setattr("groundscan_tui.cli.subprocess.run", refuse)
+    monkeypatch.setattr("groundscan_tui.engine.subprocess.run", refuse)
     assert run([str(EXPORT)]) == 1
     assert "run-level refusal" in capsys.readouterr().err
 

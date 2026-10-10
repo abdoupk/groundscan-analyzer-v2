@@ -7,8 +7,18 @@ from pathlib import Path
 import pytest
 
 from groundscan_analyzer import document as document_module
-from groundscan_analyzer import reader, synthetic
-from groundscan_tui.model import RefusalView, ScanView, build_detections, build_grid, build_view
+from groundscan_analyzer import frames, reader, synthetic
+from groundscan_tui.model import (
+    CLASS_WORDS,
+    RefusalView,
+    ScanView,
+    _class_word,
+    build_detections,
+    build_grid,
+    build_view,
+)
+
+from .support import document_view, first_refusal, first_scan
 
 ENGINE_DATA = Path(__file__).resolve().parents[3] / "tests" / "data"
 
@@ -33,6 +43,21 @@ Impulse X,Scan Line Y,Impulse X [m],Scan Line Y [m],Depth Z [m],Scan Value,Latit
 
 def _row_refused() -> document_module.Document:
     return reader.read_document([HEADER.encode()])
+
+
+def _survey() -> document_module.Document:
+    return document_module.loads(
+        (ENGINE_DATA / "acceptance_survey.json").read_text(encoding="utf-8")
+    )
+
+
+def _campaign() -> document_module.Document:
+    return reader.read_document(
+        [
+            (ENGINE_DATA / "acceptance_single_export.txt").read_bytes(),
+            (ENGINE_DATA / "acceptance_refused_export.txt").read_bytes(),
+        ],
+    )
 
 
 def _read() -> document_module.ScanRead:
@@ -67,9 +92,17 @@ def _synthetic_scan(impulses: int, lines: int) -> document_module.ScanRead:
 
 
 def test_one_export_yields_one_view() -> None:
-    view = build_view(_single())
-    assert isinstance(view, ScanView)
-    assert len(view.detections) == 2
+    view = document_view(_single())
+    assert len(view.scans) == 1
+    assert len(first_scan(_single()).detections) == 2
+
+
+def test_a_document_view_carries_document_level_facts() -> None:
+    labels = dict(document_view(_single()).facts)
+    assert labels["contract version"] == "1"
+    assert labels["registry version"] == "3"
+    assert labels["quantity registry version"] == "4"
+    assert labels["numeric reading"] == "default-numeric-reading-v1"
 
 
 def test_field_is_a_lattice_over_the_observed_span() -> None:
@@ -171,28 +204,19 @@ def test_roots_have_no_parent_and_their_depth_is_zero() -> None:
 
 
 def test_facts_carry_named_fields_only() -> None:
-    view = build_view(_single())
-    assert isinstance(view, ScanView)
-    labels = dict(view.facts)
-    assert labels["contract version"] == "1"
-    assert labels["registry version"] == "3"
-    assert labels["quantity registry version"] == "4"
-    assert labels["numeric reading"] == "default-numeric-reading-v1"
+    labels = dict(first_scan(_single()).facts)
+    assert labels["payload hash"] == _read().payload_hash
     assert labels["measured cells"] == str(_read().hierarchy.measured_cells)
 
 
 def test_a_declared_extent_is_stated_and_its_absence_too() -> None:
-    view = build_view(_single())
-    assert isinstance(view, ScanView)
-    single = dict(view.facts)
+    single = dict(first_scan(_single()).facts)
     assert single["declared field length"] != "not declared"
     assert single["background combination"] == "median"
 
 
 def test_every_result_state_travels_with_its_reason() -> None:
-    view = build_view(_single())
-    assert isinstance(view, ScanView)
-    states = {output.name: output for output in view.outputs}
+    states = {output.name: output for output in first_scan(_single()).outputs}
     assert states["scale-normalised view"].status == "indeterminate"
     assert states["scale-normalised view"].reason == "scale-not-warranted"
     assert states["mask invariance"].status == "not-emitted"
@@ -201,24 +225,53 @@ def test_every_result_state_travels_with_its_reason() -> None:
 
 
 def test_a_refusal_is_its_own_shape_not_a_broken_scan() -> None:
-    view = build_view(_refused())
-    assert isinstance(view, RefusalView)
+    view = first_refusal(_refused())
     assert view.reason == "missing-required-column"
     assert view.detail
     assert view.rows == ()
 
 
 def test_a_refusal_names_the_offending_rows_where_it_has_them() -> None:
-    view = build_view(_row_refused())
-    assert isinstance(view, RefusalView)
+    view = first_refusal(_row_refused())
     assert view.rows
     assert all(row.startswith("line ") for row in view.rows)
     assert all(":" in row for row in view.rows)
 
 
-def test_more_than_one_scan_record_is_a_defect() -> None:
-    survey = document_module.loads(
-        (ENGINE_DATA / "acceptance_survey.json").read_text(encoding="utf-8"),
-    )
-    with pytest.raises(ValueError, match="one export yields one scan record"):
-        build_view(survey)
+def test_every_scan_carries_its_intake_position() -> None:
+    view = document_view(_single())
+    assert view.scans[0].position == 0
+
+
+def test_a_document_with_no_scan_record_is_a_defect() -> None:
+    doc = _single().model_copy(update={"scans": []})
+    with pytest.raises(ValueError, match="no scan record"):
+        build_view(doc)
+
+
+def test_the_relation_class_table_round_trips_against_the_engine() -> None:
+    """The view restates a table the engine does not publish; prove it agrees."""
+    for index, word in enumerate(CLASS_WORDS):
+        assert frames.word_to_class(word) == index
+
+
+def test_an_out_of_range_relation_class_is_named_not_guessed() -> None:
+    assert _class_word(0) == "same"
+    assert _class_word(3) == "90-counter-clockwise"
+    assert _class_word(9) == "class-9"
+
+
+def test_a_survey_without_relations_carries_no_frames() -> None:
+    view = document_view(_survey())
+    assert view.survey.relations == ()
+    assert view.survey.frames == ()
+    assert view.survey.contradictions == ()
+    assert view.survey.recurrences
+    assert view.is_survey
+
+
+def test_a_campaign_keeps_every_scan_in_intake_order() -> None:
+    view = document_view(_campaign())
+    assert [scan.position for scan in view.scans] == [0, 1]
+    assert isinstance(view.scans[0], ScanView)
+    assert isinstance(view.scans[1], RefusalView)

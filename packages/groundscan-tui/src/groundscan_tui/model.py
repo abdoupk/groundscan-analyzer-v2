@@ -24,6 +24,12 @@ if TYPE_CHECKING:
 
 CellKind = Literal["positive", "negative", "zero", "padding", "absent"]
 
+# The relation classes the engine stores as integers, in class order. This is
+# the inverse of `frames.word_to_class`, restated here because the engine does
+# not publish the inverse; `tests/test_model.py` round-trips every entry
+# against the engine's own table so a change there fails here rather than
+# silently renaming a relation in the view.
+
 
 @dataclass(frozen=True, slots=True)
 class Cell:
@@ -116,15 +122,19 @@ class OutputState:
 
 @dataclass(frozen=True, slots=True)
 class ScanView:
-    """Everything the field browser draws for a read export.
+    """Everything the field browser draws for one read export.
 
     Attributes:
+        position: The scan's intake position, the integer the engine indexes by.
+        payload_hash: The canonical payload hash the record gives this scan.
         grid: The residual field as a lattice.
         detections: Every detection, in the record's own order.
-        facts: Provenance and population facts, each a named field's value.
+        facts: Scan-level provenance and population facts.
         outputs: Every result state, each beside the reason it holds.
     """
 
+    position: int
+    payload_hash: str
     grid: Grid
     detections: tuple[DetectionRow, ...]
     facts: tuple[tuple[str, str], ...]
@@ -135,15 +145,138 @@ class ScanView:
 class RefusalView:
     """What the input contract declined, and the evidence for it.
 
+    A refusal is a state of one scan, not a failure of the whole campaign: a
+    folder commonly holds several exports and some are declined.
+
     Attributes:
+        position: The scan's intake position, the integer the engine indexes by.
         reason: The closed refusal reason.
         detail: The engine's own words for it.
         rows: The offending rows, each naming its line and its reason.
     """
 
+    position: int
     reason: str
     detail: str
     rows: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class RelationView:
+    """One relation the operator declared between two intake positions.
+
+    Attributes:
+        first: The first intake position.
+        second: The second intake position.
+        relation: The declared relation word.
+        source: Whether the operator asserted it or a fixture did.
+    """
+
+    first: int
+    second: int
+    relation: str
+    source: str
+
+
+@dataclass(frozen=True, slots=True)
+class FrameView:
+    """One shared frame, its members, and how they sit relative to each other.
+
+    Attributes:
+        label: The record's own label for the frame.
+        name: The frame's name, the payload hash of its canonical reference.
+        members: The intake positions sharing this frame.
+        relations: Each member's relation class word, in member order.
+        limitations: Limitations travelling with the frame claim.
+    """
+
+    label: str
+    name: str
+    members: tuple[int, ...]
+    relations: tuple[str, ...]
+    limitations: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class ContradictionView:
+    """Two declared relations that cannot both hold.
+
+    Attributes:
+        first: The first intake position.
+        second: The second intake position.
+        expected: The relation class the other declarations imply.
+        declared: The relation class that position declared.
+    """
+
+    first: int
+    second: int
+    expected: int
+    declared: int
+
+
+@dataclass(frozen=True, slots=True)
+class RecurrenceView:
+    """Whether two scans could be compared for recurrence, and what stopped it.
+
+    Attributes:
+        first: The first intake position.
+        second: The second intake position.
+        eligibility: Whether the pair could be decided at all.
+        reason: The closed reason, which also names the ineligibility.
+        status: The record's result state for the comparison.
+    """
+
+    first: int
+    second: int
+    eligibility: str
+    reason: str
+    status: str
+
+
+@dataclass(frozen=True, slots=True)
+class SurveyView:
+    """The cross-scan evidence, exactly as much as the record carries.
+
+    Every list is empty when the operator declared no relations, which is the
+    ordinary case for a folder of unrelated exports. The view does not invent
+    a frame to fill the space.
+
+    Attributes:
+        relations: Every declared relation.
+        frames: Every shared frame the engine could build.
+        contradictions: Declared relations that cannot both hold.
+        recurrences: Every recurrence pair with its eligibility.
+    """
+
+    relations: tuple[RelationView, ...]
+    frames: tuple[FrameView, ...]
+    contradictions: tuple[ContradictionView, ...]
+    recurrences: tuple[RecurrenceView, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class DocumentView:
+    """Everything one engine document carries, ready to browse or export.
+
+    Attributes:
+        facts: Document-level provenance, the versions and the reading.
+        scans: Every scan, in intake order, read or refused.
+        survey: The cross-scan evidence.
+    """
+
+    facts: tuple[tuple[str, str], ...]
+    scans: tuple[ScanView | RefusalView, ...]
+    survey: SurveyView
+
+    @property
+    def is_survey(self) -> bool:
+        """Whether this document carries any cross-scan evidence at all."""
+        return bool(
+            self.survey.relations
+            or self.survey.frames
+            or self.survey.contradictions
+            or self.survey.recurrences,
+        )
 
 
 def _absent(impulse: int, scan_line: int) -> Cell:
@@ -337,13 +470,8 @@ def _declared(value: float | None) -> str:
     return "not declared" if value is None else f"{value:g}"
 
 
-def _facts(
-    doc: document_module.Document, scan: document_module.ScanRead
-) -> tuple[tuple[str, str], ...]:
-    """Collect the provenance and population facts the header shows.
-
-    Every entry is one named field's own value, so a reader can find the
-    same figure in the record the engine emits.
+def _document_facts(doc: document_module.Document) -> tuple[tuple[str, str], ...]:
+    """Collect the facts that hold for a whole document.
 
     Returns:
         Each fact as a label and the value of the field behind it.
@@ -353,6 +481,21 @@ def _facts(
         ("registry version", str(doc.registry_version)),
         ("quantity registry version", str(doc.quantity_registry_version)),
         ("numeric reading", doc.convention),
+        ("payload encoding", doc.payload_encoding_version),
+        ("decimal separator", doc.decimal_separator),
+    )
+
+
+def _facts(scan: document_module.ScanRead) -> tuple[tuple[str, str], ...]:
+    """Collect one scan's provenance and population facts.
+
+    Every entry is one named field's own value, so a reader can find the
+    same figure in the record the engine emits.
+
+    Returns:
+        Each fact as a label and the value of the field behind it.
+    """
+    return (
         ("payload hash", scan.payload_hash),
         ("impulse indices", _index_span(scan.lattice.impulses)),
         ("scan-line indices", _index_span(scan.lattice.scan_lines)),
@@ -387,29 +530,138 @@ def _outputs(scan: document_module.ScanRead) -> tuple[OutputState, ...]:
     )
 
 
-def build_view(doc: document_module.Document) -> ScanView | RefusalView:
-    """Project one Document into whichever shape it turned out to be.
+CLASS_WORDS: tuple[str, ...] = (
+    "same",
+    "90-clockwise",
+    "opposite",
+    "90-counter-clockwise",
+)
 
-    Args:
-        doc: The document the engine emitted for one export.
+
+def _class_word(relation_class: int) -> str:
+    """Name a relation class the way the operator declared it.
+
+    The engine stores the class as an integer because relations compose; this
+    is the inverse of `frames.word_to_class`, and a test round-trips every
+    entry against the engine's own table so the two cannot drift apart.
 
     Returns:
-        A ScanView where the contract read the export, or a RefusalView
-        where it declined.
-
-    Raises:
-        ValueError: Where one export produced other than one scan record.
+        The relation word, or the class itself where it is out of range.
     """
-    if len(doc.scans) != 1:
-        message = f"one export yields one scan record, not {len(doc.scans)}"
-        raise ValueError(message)
-    scan = doc.scans[0]
+    if 0 <= relation_class < len(CLASS_WORDS):
+        return CLASS_WORDS[relation_class]
+    return f"class-{relation_class}"
+
+
+def _relations(doc: document_module.Document) -> tuple[RelationView, ...]:
+    return tuple(
+        RelationView(
+            first=item.first,
+            second=item.second,
+            relation=item.relation,
+            source=item.source,
+        )
+        for item in doc.declared_relations
+    )
+
+
+def _frames(doc: document_module.Document) -> tuple[FrameView, ...]:
+    return tuple(
+        FrameView(
+            label=frame.label,
+            name=frame.name,
+            members=tuple(frame.members),
+            relations=tuple(_class_word(rel.relation_class) for rel in frame.relations),
+            limitations=frame.limitations,
+        )
+        for frame in doc.frames
+    )
+
+
+def _contradictions(doc: document_module.Document) -> tuple[ContradictionView, ...]:
+    return tuple(
+        ContradictionView(
+            first=item.first,
+            second=item.second,
+            expected=item.expected_class,
+            declared=item.declared_class,
+        )
+        for item in doc.contradictions
+    )
+
+
+def _recurrences(doc: document_module.Document) -> tuple[RecurrenceView, ...]:
+    return tuple(
+        RecurrenceView(
+            first=item.first,
+            second=item.second,
+            eligibility=item.eligibility,
+            reason=item.reason,
+            status=item.status,
+        )
+        for item in doc.recurrences
+    )
+
+
+def _survey(doc: document_module.Document) -> SurveyView:
+    """Collect the cross-scan evidence the record carries, and no more.
+
+    Returns:
+        The declared relations, frames, contradictions and recurrences.
+    """
+    return SurveyView(
+        relations=_relations(doc),
+        frames=_frames(doc),
+        contradictions=_contradictions(doc),
+        recurrences=_recurrences(doc),
+    )
+
+
+def _scan_view(
+    scan: document_module.ScanRead | document_module.ScanRefused,
+) -> ScanView | RefusalView:
+    """Project one scan, read or refused, into whichever shape it is.
+
+    Returns:
+        A ScanView where the contract read the scan, or a RefusalView where
+        it declined.
+    """
     if isinstance(scan, document_module.ScanRefused):
         rows = tuple(f"line {issue.line}: {issue.reason}" for issue in scan.rows)
-        return RefusalView(reason=scan.reason, detail=scan.detail, rows=rows)
+        return RefusalView(
+            position=scan.position,
+            reason=scan.reason,
+            detail=scan.detail,
+            rows=rows,
+        )
     return ScanView(
+        position=scan.position,
+        payload_hash=scan.payload_hash,
         grid=build_grid(scan),
         detections=build_detections(scan.hierarchy),
-        facts=_facts(doc, scan),
+        facts=_facts(scan),
         outputs=_outputs(scan),
+    )
+
+
+def build_view(doc: document_module.Document) -> DocumentView:
+    """Project one Document into everything a campaign view needs.
+
+    Args:
+        doc: The document the engine emitted.
+
+    Returns:
+        Every scan in intake order, read or refused, beside the cross-scan
+        evidence.
+
+    Raises:
+        ValueError: Where the document carries no scan record at all.
+    """
+    if not doc.scans:
+        message = "the document carries no scan record"
+        raise ValueError(message)
+    return DocumentView(
+        facts=_document_facts(doc),
+        scans=tuple(_scan_view(scan) for scan in doc.scans),
+        survey=_survey(doc),
     )

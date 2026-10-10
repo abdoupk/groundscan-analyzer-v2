@@ -1,11 +1,12 @@
 """The panes: what is on screen, and the text each one carries.
 
-Three panes and a header. The detection list is the navigation spine and
-carries the order the record chose; the field shows where a detection sits;
-the detail panel carries every figure the record states about it beside
-every limitation and withheld reason that qualifies it. The header carries
-the scan's provenance and every result state, so a doubt is never filed
-away from the headline it qualifies.
+A scan list when the document holds more than one scan, then the detection
+list that is the navigation spine, the field that shows where a detection
+sits, and the detail panel carrying every figure the record states about it
+beside every limitation and withheld reason that qualifies it. The header
+states the document's provenance once and the selected scan's beside it, so
+a doubt is never filed away from the headline it qualifies. A survey section
+appears only where the record carries cross-scan evidence.
 
 Nothing here measures. Each function reads a projection or a fold over a
 listed set, and the set is on the same screen as the figure.
@@ -19,14 +20,46 @@ from rich.text import Text
 from textual.widgets import Label, ListItem, ListView, Static
 
 from groundscan_tui.grid import field_text
+from groundscan_tui.model import ScanView
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
     from groundscan_analyzer import document as document_module
-    from groundscan_tui.model import DetectionRow, Grid, ScanView
+    from groundscan_tui.model import (
+        DetectionRow,
+        DocumentView,
+        Grid,
+        RefusalView,
+        SurveyView,
+    )
 
 ABSENT: str = "not carried"
+
+
+def refusal_text(refusal: RefusalView) -> str:
+    """Draw a refusal with its reason, its detail and its rows.
+
+    Args:
+        refusal: The refusal to draw.
+
+    Returns:
+        The refusal's text.
+    """
+    lines = [
+        "This export was refused by the input contract.",
+        "",
+        f"reason: {refusal.reason}",
+        "",
+        refusal.detail,
+        "",
+    ]
+    if refusal.rows:
+        lines.append("rows:")
+        lines.extend(f"  {row}" for row in refusal.rows)
+    else:
+        lines.append(f"no offending row was recorded; {ABSENT}")
+    return "\n".join(lines)
 
 
 def _figure(value: float | None, reason: str | None, *, noun: str) -> str:
@@ -206,23 +239,78 @@ def detail_text(row: DetectionRow | None) -> Text:
     return text
 
 
-def header_text(view: ScanView) -> Text:
-    """Draw the scan's provenance, populations and every result state.
+def header_text(view: DocumentView, scan: ScanView | RefusalView) -> Text:
+    """Draw the document's provenance, then the selected scan's facts.
+
+    Document-level facts are stated once because they hold for every scan;
+    scan-level facts travel with the scan they belong to.
 
     Args:
-        view: The scan the header describes.
+        view: The document being browsed.
+        scan: The scan currently selected.
 
     Returns:
         The header's text.
     """
     text = Text()
-    _heading(text, "Scan record")
+    _heading(text, "Document record")
     for label, value in view.facts:
         _line(text, label, value)
-    _heading(text, "Result states")
-    for output in view.outputs:
-        state = output.status if output.reason is None else f"{output.status} ({output.reason})"
-        _line(text, output.name, state)
+    _heading(text, "Scan record")
+    if isinstance(scan, ScanView):
+        for label, value in scan.facts:
+            _line(text, label, value)
+        for output in scan.outputs:
+            state = output.status if output.reason is None else f"{output.status} ({output.reason})"
+            _line(text, output.name, state)
+    else:
+        _line(text, "intake position", str(scan.position))
+        _line(text, "state", f"refused ({scan.reason})")
+    return text
+
+
+def survey_text(survey: SurveyView) -> Text:
+    """Draw the cross-scan evidence, each entry beside the reason it carries.
+
+    Nothing is summarised across scans: a count of frames or a tally of
+    contradictions would be a figure this view has no warrant for, and the
+    eligibility of a recurrence is a claim rather than a tally.
+
+    Args:
+        survey: The cross-scan evidence to draw.
+
+    Returns:
+        The survey section's text.
+    """
+    text = Text()
+    _heading(text, "Cross-scan evidence")
+    for relation in survey.relations:
+        _line(
+            text,
+            f"relation {relation.first} to {relation.second}",
+            f"{relation.relation} ({relation.source})",
+        )
+    for frame in survey.frames:
+        _line(
+            text,
+            frame.label,
+            f"members {', '.join(str(m) for m in frame.members)};"
+            f" relations {', '.join(frame.relations)}",
+        )
+        _line(text, f"{frame.label} name", frame.name)
+        _line(text, f"{frame.label} limitations", ", ".join(frame.limitations) or "none stated")
+    for contradiction in survey.contradictions:
+        _line(
+            text,
+            f"contradiction {contradiction.first} to {contradiction.second}",
+            f"expected class {contradiction.expected}, declared class {contradiction.declared}",
+        )
+    for recurrence in survey.recurrences:
+        _line(
+            text,
+            f"recurrence {recurrence.first} to {recurrence.second}",
+            f"{recurrence.eligibility}, {recurrence.reason}, {recurrence.status}",
+        )
     return text
 
 
@@ -239,6 +327,18 @@ class FieldPane(Static):
         self.update(field_text(grid, selected))
 
 
+class RefusalPane(Static):
+    """One scan's refusal, shown in the place the field would have been."""
+
+    def show(self, refusal: RefusalView) -> None:
+        """Draw the refusal.
+
+        Args:
+            refusal: The refusal to draw.
+        """
+        self.update(refusal_text(refusal))
+
+
 class DetailPane(Static):
     """The selected detection, its figures and its limits together."""
 
@@ -251,6 +351,43 @@ class DetailPane(Static):
         self.update(detail_text(row))
 
 
+class ScanPane(ListView):
+    """Every scan in the document, by intake position.
+
+    Shown only where a document carries more than one scan, so the
+    single-export case keeps the layout it had.
+    """
+
+    def __init__(self, labels: Sequence[tuple[int, str]]) -> None:
+        """Open the list on the scans the document carries.
+
+        Args:
+            labels: One intake position and label per scan.
+        """
+        super().__init__(*_scan_items(labels))
+        self._labels = tuple(labels)
+
+    @property
+    def current_position(self) -> int:
+        """The highlighted scan's intake position, defaulting to the first."""
+        index = self.index
+        if index is None or not 0 <= index < len(self._labels):
+            return 0
+        return self._labels[index][0]
+
+
+def _scan_items(labels: Sequence[tuple[int, str]]) -> tuple[ListItem, ...]:
+    """Write one list line per scan, showing the intake position.
+
+    Returns:
+        One item per scan, in document order.
+    """
+    return tuple(
+        ListItem(Label(f"{position:>3}  {label}"), id=f"scan-{position}")
+        for position, label in labels
+    )
+
+
 class DetectionPane(ListView):
     """Every detection, in the order the record numbered them.
 
@@ -259,33 +396,28 @@ class DetectionPane(ListView):
     single cells, so any size-based order would promote the wrong ones.
     """
 
-    def __init__(self, rows: Sequence[DetectionRow]) -> None:
-        """Open the list on the rows the record carries.
+    def __init__(self) -> None:
+        """Open the list empty, to be filled by the first scan shown."""
+        super().__init__()
+        self._rows: tuple[DetectionRow, ...] = ()
+
+    async def load(self, rows: Sequence[DetectionRow]) -> None:
+        """Replace the list with another scan's detections.
+
+        Reloading the same rows is a no-op, which is what keeps a redraw
+        from rebuilding the list under the reader's feet: selecting a
+        detection redraws, and rebuilding there would move the selection.
 
         Args:
             rows: The detections, in record order.
         """
-        super().__init__(*self._items(rows))
-        self._rows = tuple(rows)
-
-    @staticmethod
-    def _items(rows: Sequence[DetectionRow]) -> tuple[ListItem, ...]:
-        """Write one list line per detection, from named fields only.
-
-        Returns:
-            One item per detection, in the order the record numbered them.
-        """
-        return tuple(
-            ListItem(
-                Label(
-                    f"{row.detection.number:>4}  {row.detection.polarity:<8}"
-                    f" {row.detection.cell_count:>4} cells"
-                    f"  birth {row.detection.birth_level:+g}",
-                ),
-                id=f"d-{row.detection.number}",
-            )
-            for row in rows
-        )
+        wanted = tuple(rows)
+        if wanted == self._rows:
+            return
+        self._rows = wanted
+        await self.clear()
+        await self.extend(_detection_items(wanted))
+        self.index = 0 if wanted else None
 
     @property
     def current_row(self) -> DetectionRow | None:
@@ -294,3 +426,22 @@ class DetectionPane(ListView):
         if index is None or not 0 <= index < len(self._rows):
             return None
         return self._rows[index]
+
+
+def _detection_items(rows: Sequence[DetectionRow]) -> tuple[ListItem, ...]:
+    """Write one list line per detection, from named fields only.
+
+    Returns:
+        One item per detection, in the order the record numbered them.
+    """
+    return tuple(
+        ListItem(
+            Label(
+                f"{row.detection.number:>4}  {row.detection.polarity:<8}"
+                f" {row.detection.cell_count:>4} cells"
+                f"  birth {row.detection.birth_level:+g}",
+            ),
+            id=f"d-{row.detection.number}",
+        )
+        for row in rows
+    )
