@@ -5,10 +5,10 @@ Python 3.13 CLI package managed with `uv` (src layout, `uv_build` backend). Inte
 ## Setup
 
 ```bash
-uv sync                 # creates .venv (Python pinned by .python-version: 3.13)
+uv sync --all-packages   # creates .venv (Python pinned by .python-version: 3.13)
 ```
 
-Plain `uv run` auto-syncs; `--frozen` is used in this repo's commands to avoid re-resolving. Never `pip install` into `.venv`.
+`--all-packages` is not optional. This is a uv workspace (`[tool.uv.workspace] members = ["packages/*"]`), and a bare `uv sync` syncs the root alone and **uninstalls every sibling package** — silently, and without error. Plain `uv run` auto-syncs; `--frozen` is used in this repo's commands to avoid re-resolving. Never `pip install` into `.venv`.
 
 The shell is PowerShell without Unix utils (`head`, `grep`, bare `python3`, and Unix-style `gh` pipes/quoting all fail); prefer the dedicated file tools and `uv run python`. Never pass `--jq` filter expressions containing spaces, pipes, or quotes to `gh`; use `--json` plus `ConvertFrom-Json`/`Select-Object`, or save output to a file and `Read` it. Scope every content search with `path` and `include`; unscoped searches return truncated 100-match floods that burn context.
 
@@ -35,13 +35,14 @@ Run gates in this order: `ruff format` → `ruff check` → `mypy` → `pytest`.
 
 Bumping a registry version also means bumping its `Document` literal and regenerating `tests/data/*.json` via `document.dumps`; only a full `pytest` proves it, never a focused file. Shape changes that only add defaulted fields regenerate the JSONs with no contract bump (`CONTRACT_VERSION` is still 1 after #130–#141).
 
-There is still no CI. There **is** a `.pre-commit-config.yaml`, which runs the cheap gates on every commit: `ruff format` → `ruff check` → `vulture src` → `mypy` → `pytest` → `scripts/check_map.py` → `deptry .`. Two more are wired up but off the commit path, on the `manual` stage, because they cost minutes or need the network:
+There is still no CI. There **is** a `.pre-commit-config.yaml`, which runs the cheap gates on every commit: `ruff format` → `ruff check` → `vulture src` → `mypy` → `pytest` → six per-package hooks → `scripts/check_map.py` → `deptry .`. Two more are wired up but off the commit path, on the `manual` stage, because they cost minutes or need the network:
 
 ```bash
 uv run pre-commit run --hook-stage manual --all-files
 ```
 
-- **`deptry` is a blocking gate on the commit path.** The #19 verdicts have reached `pyproject.toml`, so a declared-but-unimported package is now a defect. The admitted-but-not-yet-imported set is scoped in `[tool.deptry.per_rule_ignores]`; any other DEP002 fails the commit.
+- **A sibling package carries its own gates, and they run on the commit path.** `packages/*` is a second distribution with its own `[tool.*]` tables; ruff reaches it on its own (each file resolves against its own package's `pyproject.toml`), but `mypy`, `pytest` and `deptry` are all root-scoped, so `.pre-commit-config.yaml` runs one of each per member with `uv run --directory`. Run a package's gates by hand with `uv run --frozen --directory packages/<name> <tool>`; never `uv run pytest packages/...` from the root, which collects them under the *root's* `--cov=groundscan_analyzer` and `--cov-fail-under=95`.
+- **`deptry` is a blocking gate on the commit path.** The #19 verdicts have reached `pyproject.toml`, so a declared-but-unimported package is now a defect. The admitted-but-not-yet-imported set is scoped in `[tool.deptry.per_rule_ignores]`; any other DEP002 fails the commit. The root `exclude` already lists `packages`, so a new member needs no root change.
 - **`scripts/check_map.py` calls the network.** Its subject is the relationship between this repository and the tracker, not a file's contents, which is why it is a hook rather than a test.
 
 ## Pytest addopts are hostile to focused runs
@@ -63,7 +64,7 @@ uv run pre-commit run --hook-stage manual --all-files
 - `flake8-annotations`: `mypy-init-return = true` (`__init__` must be annotated `-> None`), `allow-star-arg-any = false` (no unannotated `*args`).
 - Size/complexity caps: `max-args = 5`, `max-branches = 10`, `max-returns = 4`, `max-statements = 40`, `max-complexity = 8`. Split functions rather than suppressing with `# noqa`.
 - Assign exception messages to a variable before raising (EM101/TRY003); document exactly the exceptions a function raises itself; suppress only as `ruff: ignore[rule-name]` with a reason.
-- `tests/**` ignores `D`, `assert`, `private-member-access`, `magic-value-comparison`, `too-many-arguments` — test files do not need docstrings.
+- `tests/**` ignores `D`, `assert`, `private-member-access`, `import-private-name`, `magic-value-comparison`, `too-many-arguments` — test files do not need docstrings, and a unit test may reach a private helper.
 - Share closed vocabularies as `Literal` aliases (e.g. `WithheldReason`); never `Final[Literal[...]]` constants or `NamedTuple` fields named `count`/`index` (tuple methods).
 
 ## mypy is stricter than default strict
@@ -77,7 +78,8 @@ uv run pre-commit run --hook-stage manual --all-files
 ## Files to leave alone
 
 - `audit-requirements.txt` is **autogenerated** by the `uv export` command recorded in its header. Never hand-edit it. (It was stale until [#19](https://github.com/abdoupk/groundscan-analyzer-v2/issues/19): it was missing `vulture` entirely, and the "in sync with `uv.lock`" claim in this file was false. Regenerate rather than patch.)
-- `uv.lock` — commit dependency changes, never hand-edit.
+- The recorded export command is `uv export --no-emit-project --frozen`, which covers the **root package only**. It does not follow workspace members, so `packages/*`'s dependency trees have never been in the CVE-scan surface: `jinja2` (from `groundscan-record`) and `textual` (from `groundscan-tui`) are both absent from the file, and regenerating it after adding a member leaves it byte-identical. `uv export --all-packages --no-emit-project --frozen` does include them (verified). Changing the recorded command is a policy decision; until it is taken, `pip-audit` does not see a sibling package's dependencies.
+- `uv.lock` — commit dependency changes, never hand-edit. Adding a `packages/*` member requires `uv lock` and breaks every `--frozen` command until it is run.
 
 ## Packaging and layout
 

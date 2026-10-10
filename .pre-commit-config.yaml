@@ -50,6 +50,55 @@ repos:
         language: system
         pass_filenames: false
 
+      # A workspace member is a second distribution with its own gates. Ruff
+      # reaches packages/ on its own (it resolves each file against that
+      # package's own pyproject.toml), but mypy, pytest and deptry are all
+      # scoped to the root, so without these a package could ship with a
+      # failing typecheck, a failing suite, or an undeclared import. One
+      # entry per tool per member, run with --directory so the member's own
+      # config is the one that applies.
+      - id: record-mypy
+        name: mypy (groundscan-record)
+        entry: uv run --frozen --directory packages/groundscan-record mypy
+        language: system
+        pass_filenames: false
+        always_run: true
+
+      - id: record-pytest
+        name: pytest (groundscan-record)
+        entry: uv run --frozen --directory packages/groundscan-record pytest
+        language: system
+        pass_filenames: false
+        always_run: true
+
+      - id: record-deptry
+        name: deptry (groundscan-record)
+        entry: uv run --frozen --directory packages/groundscan-record deptry .
+        language: system
+        pass_filenames: false
+        always_run: true
+
+      - id: tui-mypy
+        name: mypy (groundscan-tui)
+        entry: uv run --frozen --directory packages/groundscan-tui mypy
+        language: system
+        pass_filenames: false
+        always_run: true
+
+      - id: tui-pytest
+        name: pytest (groundscan-tui)
+        entry: uv run --frozen --directory packages/groundscan-tui pytest
+        language: system
+        pass_filenames: false
+        always_run: true
+
+      - id: tui-deptry
+        name: deptry (groundscan-tui)
+        entry: uv run --frozen --directory packages/groundscan-tui deptry .
+        language: system
+        pass_filenames: false
+        always_run: true
+
       - id: map-check
         name: map body vs tracker
         entry: python scripts/check_map.py
