@@ -1,62 +1,30 @@
 [project]
-name = "groundscan-analyzer"
+name = "groundscan-record"
 version = "0.1.0"
-description = "OKM-focused ground scan analyzer with field-operational quality gating"
-readme = "README.md"
-authors = [
-    { name = "abdoupk", email = "abdouabdou169@gmail.com" }
-]
+description = "Field acceptance record for GroundScan v2 engine documents"
 requires-python = ">=3.13"
 dependencies = [
-    "numpy>=2.5.3",
-    "pydantic>=2.13.5",
-    "scipy>=1.18.1",
+    "groundscan-analyzer",
+    "jinja2>=3.1.6",
 ]
-
-[project.scripts]
-groundscan-analyzer = "groundscan_analyzer:main"
 
 [build-system]
 requires = ["uv_build>=0.12.6,<0.13.0"]
 build-backend = "uv_build"
 
-[dependency-groups]
-dev = [
-    "deptry>=0.25.1",
-    "hypothesis>=6.168.3",
-    "mypy>=2.3.1",
-    "pip-audit>=2.10.1",
-    "pre-commit>=4.6.2",
-    "pytest>=9.1.1",
-    "pytest-cov>=7.1.0",
-    "pytest-gremlins>=1.9.0",
-    "pytest-randomly>=5.0.0",
-    "pytest-timeout>=2.4.0",
-    "pytest-xdist>=3.8.0",
-    "ruff>=0.16.9",
-    "scipy-stubs",
-    "vulture>=2.16",
-]
-
-[tool.uv.workspace]
-members = ["packages/*"]
+[tool.uv.sources]
+groundscan-analyzer = { workspace = true }
 
 # ---------- Ruff ----------
 [tool.ruff]
 line-length = 100
 target-version = "py313"
 src = ["src", "tests"]
-# docs/ holds archaeology (docs/legacy/) and research notes, not project code.
-# Without this, `ruff check .` / `ruff format .` walk it: check reports ~9k
-# findings against code we are forbidden to adapt, and format REWRITES it.
-# scripts/ is agent tooling, same category and same reason: it prints, and it
-# shells out to `gh`, both of which `select = ["ALL"]` flags by construction.
-exclude = ["docs", "scripts"]
 preview = true
 required-version = "==0.16.9"
 force-exclude = true
 output-format = "full"
- 
+
 [tool.ruff.lint]
 select = ["ALL"]
 ignore = [
@@ -67,24 +35,21 @@ ignore = [
     "missing-copyright-notice",  # copyright headers
 ]
 task-tags = ["TODO", "FIXME", "XXX"]
- 
+
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["assert", "D", "magic-value-comparison", "private-member-access", "too-many-arguments"]
-# Spec #115 decides the CLI writes with the built-in output function, so the
-# print ban does not apply to the CLI module itself. Everywhere else it stands.
-"src/groundscan_analyzer/cli.py" = ["print"]
- 
+
 [tool.ruff.lint.pydocstyle]
 convention = "google"
- 
+
 [tool.ruff.lint.isort]
-known-first-party = ["groundscan_analyzer"]
+known-first-party = ["groundscan_analyzer", "groundscan_record"]
 force-sort-within-sections = true
- 
+
 [tool.ruff.lint.flake8-annotations]
 allow-star-arg-any = false
 mypy-init-return = true
- 
+
 [tool.ruff.lint.flake8-type-checking]
 strict = true
 runtime-evaluated-base-classes = [
@@ -92,21 +57,21 @@ runtime-evaluated-base-classes = [
     "pydantic_settings.BaseSettings",
 ]
 runtime-evaluated-decorators = ["pydantic.validate_call"]
- 
+
 [tool.ruff.lint.mccabe]
 max-complexity = 8
- 
+
 [tool.ruff.lint.pylint]
 max-args = 5
 max-branches = 10
 max-returns = 4
 max-statements = 40
- 
+
 [tool.ruff.format]
 docstring-code-format = true
 preview = true
 line-ending = "lf"
- 
+
 # ---------- mypy ----------
 [tool.mypy]
 python_version = "3.13"
@@ -136,18 +101,18 @@ enable_error_code = [
 show_error_codes = true
 pretty = true
 error_summary = true
- 
+
 [tool.pydantic-mypy]
 init_forbid_extra = true
 init_typed = true
 warn_required_dynamic_aliases = true
- 
+
 [[tool.mypy.overrides]]
 module = "tests.*"
 disallow_any_explicit = false
 disallow_any_decorated = false        # @given, fixtures, parametrize
 disallow_untyped_decorators = false
- 
+
 # ---------- pytest / coverage ----------
 [tool.pytest.ini_options]
 addopts = [
@@ -155,7 +120,7 @@ addopts = [
     "--strict-markers",
     "--strict-config",
     "-n=auto",
-    "--cov=groundscan_analyzer",
+    "--cov=groundscan_record",
     "--cov-branch",
     "--cov-report=term-missing",
     "--cov-fail-under=95",
@@ -164,50 +129,30 @@ testpaths = ["tests"]
 xfail_strict = true
 filterwarnings = ["error"]
 timeout = 120
- 
+
 [tool.coverage.run]
 branch = true
-source = ["groundscan_analyzer"]
- 
+source = ["groundscan_record"]
+
 [tool.coverage.report]
 exclude_also = [
     "if TYPE_CHECKING:",
     "@overload",
     "raise NotImplementedError",
 ]
- 
+
 # ---------- pytest-gremlins ----------
 [tool.pytest-gremlins]
 paths = ["src"]
 workers = "auto"
 cache = true
- 
+
 # ---------- dependency analysis ----------
 [tool.deptry]
-known_first_party = ["groundscan_analyzer"]
-# Same reasoning and same finding as [tool.ruff]'s exclude above. Without this,
-# deptry walks docs/legacy/ and reports 674 findings against archaeology this
-# project is forbidden to adapt, so the dependency gate cannot exist at all.
-# scripts/ imports its own siblings, which deptry reads as undeclared packages.
-# packages/ carries its own dependency set under its own config: the record
-# declares jinja2 on #145's authority, which the engine must never declare,
-# so the root gate excludes it and the package gate checks it instead.
-# Setting `exclude` REPLACES deptry's defaults rather than extending them, so the
-# defaults are carried here verbatim - dropping them puts .venv back in scope.
-exclude = ["docs", "scripts", "packages", "venv", '\.venv', '\.direnv', "tests", '\.git', 'setup\.py']
-
-[tool.deptry.per_rule_ignores]
-# Admitted by the dependency evaluation (#19) for capabilities decided in
-# closed tickets: the data-model package plus the narrowed numeric pair.
-# The input path (#144) imports the data-model package, and the robust
-# scale (#133) imports the numeric calibration pair's scipy half, so only
-# numpy stays declared-but-unimported by decision, not by drift. Scoped to
-# exactly this set, so any other DEP002 remains a defect and the gate bites.
-DEP002 = ["numpy"]
+known_first_party = ["groundscan_record"]
+exclude = ["venv", '\.venv', '\.direnv', "tests", '\.git', 'setup\.py']
 
 # ---------- vulture ----------
-# verbose stays off: the AST trace floods agent context on every gate run,
-# and findings plus the exit code already carry the verdict.
 [tool.vulture]
 make_whitelist = true
 min_confidence = 80
